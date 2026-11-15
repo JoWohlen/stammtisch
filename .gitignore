@@ -25,3 +25,5 @@ logs
 
 # plans
 plans
+# generated data
+data/stammtisch.json
