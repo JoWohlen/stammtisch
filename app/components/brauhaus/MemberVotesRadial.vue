@@ -12,21 +12,30 @@ const props = defineProps<{
 }>()
 
 const MAX = 5
-/** A 5 fills 270°, which leaves the top-left quadrant free for the value labels. */
-const SWEEP = 270
+/** A 5 is a full circle, a 0 draws no arc. */
+const SWEEP = 360
 const C = 110
 const OUTER = 100
 const INNER = 22
+
+const at = (r: number, deg: number) => {
+  const a = (deg * Math.PI) / 180
+  return `${C + r * Math.sin(a)} ${C - r * Math.cos(a)}`
+}
+/** clockwise arc from 12 o'clock; split at 180° so a full 360° circle still renders */
+const arcPath = (r: number, deg: number) => {
+  const first = Math.min(deg, 180)
+  let d = `M ${at(r, 0)} A ${r} ${r} 0 0 1 ${at(r, first)}`
+  if (deg > 180) d += ` A ${r} ${r} 0 0 1 ${at(r, Math.min(deg, 359.99))}`
+  return d
+}
 
 const rings = computed(() => {
   const entries = Object.entries(props.scores).sort((a, b) => b[1] - a[1])
   const step = (OUTER - INNER) / Math.max(entries.length, 1)
   return entries.map(([name, score], i) => {
     const r = OUTER - step / 2 - i * step
-    const end = ((score / MAX) * SWEEP * Math.PI) / 180
-    const x = C + r * Math.sin(end)
-    const y = C - r * Math.cos(end)
-    const large = (score / MAX) * SWEEP > 180 ? 1 : 0
+    const deg = Math.min(score / MAX, 1) * SWEEP
     return {
       name,
       score,
@@ -34,8 +43,7 @@ const rings = computed(() => {
       width: step * 0.72,
       font: Math.min(11, step * 0.95),
       color: memberColor(name),
-      track: `M ${C} ${C - r} A ${r} ${r} 0 1 1 ${C - r} ${C}`,
-      arc: score > 0 ? `M ${C} ${C - r} A ${r} ${r} 0 ${large} 1 ${x} ${y}` : '',
+      arc: deg > 0 ? arcPath(r, deg) : '',
     }
   })
 })
@@ -72,12 +80,13 @@ const rings = computed(() => {
           :key="ring.name"
         >
           <title>{{ ring.name }}: {{ formatVote(ring.score) }}</title>
-          <path
-            :d="ring.track"
+          <circle
+            :cx="C"
+            :cy="C"
+            :r="ring.r"
             fill="none"
             class="stroke-muted"
             :stroke-width="ring.width"
-            stroke-linecap="round"
           />
           <path
             v-if="ring.arc"
@@ -87,16 +96,20 @@ const rings = computed(() => {
             :stroke-width="ring.width"
             stroke-linecap="round"
           />
-          <text
-            :x="C - 6"
-            :y="C - ring.r"
-            text-anchor="end"
-            dominant-baseline="central"
-            :fill="ring.color"
-            :font-size="ring.font"
-            class="font-semibold tabular-nums"
-          >{{ formatVote(ring.score) }}</text>
         </g>
+        <!-- value labels left of the 12 o'clock start, drawn on top with a halo so they stay readable over full rings -->
+        <text
+          v-for="ring in rings"
+          :key="`l-${ring.name}`"
+          :x="C - 5"
+          :y="C - ring.r"
+          text-anchor="end"
+          dominant-baseline="central"
+          :fill="ring.color"
+          :font-size="ring.font"
+          class="pointer-events-none font-semibold tabular-nums"
+          style="paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round"
+        >{{ formatVote(ring.score) }}</text>
       </svg>
       <p
         v-else

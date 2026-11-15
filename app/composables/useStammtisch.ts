@@ -25,6 +25,10 @@ export interface BestBrauhaus {
   location: number
   service: number
   essen: number
+  /** ISO date of the most recent visit */
+  lastDate: string
+  /** scores of the most recent visit only (equal to the means for single visits) */
+  latest: Record<Category | 'gesamt', number>
 }
 
 export interface TopVisit {
@@ -43,9 +47,12 @@ export interface BestPlaner {
   topBesuche: TopVisit[]
 }
 
-function bestBrauhaus(visits: Visit[]): BestBrauhaus | null {
-  const ranked = [...groupBy(scored(visits), v => v.slug).values()].map((vs) => {
+/** every rated Brauhaus, highest Ø Gesamt first (repeat visits = mean of their visits) */
+function rankBrauhaeuser(visits: Visit[]): BestBrauhaus[] {
+  return [...groupBy(scored(visits), v => v.slug).values()].map((vs) => {
     const avg = (k: Category | 'gesamt') => mean(vs.map(v => v.averages[k] ?? 0))
+    const last = vs.reduce((a, b) => (b.date > a.date ? b : a))
+    const lastScore = (k: Category | 'gesamt') => last.averages[k] ?? 0
     return {
       name: vs[0]!.brauhaus,
       slug: vs[0]!.slug,
@@ -54,9 +61,10 @@ function bestBrauhaus(visits: Visit[]): BestBrauhaus | null {
       location: avg('location'),
       service: avg('service'),
       essen: avg('essen'),
+      lastDate: last.date,
+      latest: { gesamt: lastScore('gesamt'), location: lastScore('location'), service: lastScore('service'), essen: lastScore('essen') },
     }
   }).sort((a, b) => b.gesamt - a.gesamt)
-  return ranked[0] ?? null
 }
 
 function bestPlaner(visits: Visit[]): BestPlaner | null {
@@ -77,6 +85,7 @@ function bestPlaner(visits: Visit[]): BestPlaner | null {
 }
 
 const visits = data.visits
+const brauhausRanking = rankBrauhaeuser(visits)
 
 const overviewStats = {
   besuche: visits.length,
@@ -86,7 +95,7 @@ const overviewStats = {
   kosten: sum(visits.map(v => v.rechnung)),
   ersterBesuch: visits[0]?.date ?? null,
   letzterBesuch: visits.at(-1)?.date ?? null,
-  bestesBrauhaus: bestBrauhaus(visits),
+  bestesBrauhaus: brauhausRanking[0] ?? null,
   besterPlaner: bestPlaner(visits),
 }
 
@@ -110,5 +119,5 @@ const getBrauhaus = (slug: string): Brauhaus | null => brauhaeuser.get(slug) ?? 
 
 /** All data is static (imported at build time), so no reactivity is needed. */
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, getBrauhaus }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus }
 }
