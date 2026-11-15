@@ -92,7 +92,23 @@ const overviewStats = {
 
 export type OverviewStats = typeof overviewStats
 
+export interface Brauhaus {
+  name: string
+  slug: string
+  /** newest visit first */
+  visits: Visit[]
+}
+
+const brauhaeuser = new Map<string, Brauhaus>(
+  [...groupBy(visits, v => v.slug).entries()].map(([slug, vs]) => [
+    slug,
+    { name: vs[0]!.brauhaus, slug, visits: [...vs].sort((a, b) => b.date.localeCompare(a.date)) },
+  ]),
+)
+
+const getBrauhaus = (slug: string): Brauhaus | null => brauhaeuser.get(slug) ?? null
+
 /** All data is static (imported at build time), so no reactivity is needed. */
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats }
+  return { visits, participants: data.participants, overviewStats, getBrauhaus }
 }
