@@ -2,12 +2,18 @@
 import { existsSync, readFileSync } from 'node:fs'
 import tailwindcss from '@tailwindcss/vite'
 
-/** Every restaurant page, so `nuxt generate` emits them even if nothing links to them. */
-const brauhausRoutes = (): string[] => {
+/** Every restaurant and participant page, so `nuxt generate` emits them even if nothing links to them. */
+const detailRoutes = (): string[] => {
   const file = new URL('./data/stammtisch.json', import.meta.url)
   if (!existsSync(file)) return []
-  const { visits } = JSON.parse(readFileSync(file, 'utf8')) as { visits: { slug: string }[] }
-  return [...new Set(visits.map(v => `/brauhaus/${v.slug}`))]
+  const { visits, participants } = JSON.parse(readFileSync(file, 'utf8')) as {
+    visits: { slug: string }[]
+    participants: { slug: string }[]
+  }
+  return [
+    ...new Set(visits.map(v => `/brauhaus/${v.slug}`)),
+    ...participants.map(p => `/teilnehmer/${p.slug}`),
+  ]
 }
 
 export default defineNuxtConfig({
@@ -23,9 +29,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   nitro: {
     prerender: {
-      routes: brauhausRoutes(),
-      // TODO: remove once app/pages/teilnehmer/[slug].vue exists
-      ignore: ['/teilnehmer'],
+      routes: detailRoutes(),
     },
   },
   vite: {

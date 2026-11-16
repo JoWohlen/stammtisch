@@ -28,5 +28,6 @@ defineProps<{
     >
       {{ sub }}
     </div>
+    <slot />
   </div>
 </template>
