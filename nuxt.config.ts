@@ -11,6 +11,7 @@ const detailRoutes = (): string[] => {
     participants: { slug: string }[]
   }
   return [
+    '/analyse',
     ...new Set(visits.map(v => `/brauhaus/${v.slug}`)),
     ...participants.map(p => `/teilnehmer/${p.slug}`),
   ]
