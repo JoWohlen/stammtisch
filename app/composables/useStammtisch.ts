@@ -1,5 +1,6 @@
 import type { Category, StammtischData, Visit } from '#shared/types'
 import raw from '../../data/stammtisch.json'
+import { computeAwards, type Award } from '@/lib/awards'
 
 const data = raw as StammtischData
 
@@ -218,7 +219,10 @@ const teilnehmer = new Map(
 
 const getTeilnehmer = (slug: string): Teilnehmer | null => teilnehmer.get(slug) ?? null
 
+const awards = computeAwards(visits, data.participants)
+const getAwards = (v: Visit): Award[] => awards.get(v.nr) ?? []
+
 /** All data is static (imported at build time), so no reactivity is needed. */
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getTeilnehmer }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getTeilnehmer, getAwards }
 }

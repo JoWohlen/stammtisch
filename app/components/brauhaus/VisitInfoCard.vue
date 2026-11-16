@@ -5,7 +5,14 @@ import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const props = defineProps<{ visit: Visit }>()
 
-const { participants } = useStammtisch()
+const { participants, getAwards } = useStammtisch()
+
+const awards = computed(() => getAwards(props.visit))
+const TONE = {
+  good: 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200',
+  bad: 'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200',
+  neutral: 'border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/15 dark:text-sky-200',
+}
 
 const dash = (n: number | null, f: (x: number) => string = x => formatNumber(x)) => (n == null ? '–' : f(n))
 
@@ -64,6 +71,15 @@ const tiles = computed(() => {
         </Badge>
         <Badge variant="outline">
           <Star /> {{ raters }} Bewertungen · Ø {{ formatScore(visit.averages.gesamt) }}
+        </Badge>
+        <Badge
+          v-for="a in awards"
+          :key="a.key"
+          variant="outline"
+          :class="TONE[a.tone]"
+          :title="a.hint"
+        >
+          <component :is="a.icon" /> {{ a.label }}
         </Badge>
       </CardDescription>
     </CardHeader>
