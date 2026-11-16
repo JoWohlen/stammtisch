@@ -49,6 +49,25 @@ export interface BestPlaner {
   topBesuche: TopVisit[]
 }
 
+/** the single best evening (highest Gesamt; ties → the earlier visit) */
+export interface BestVisit {
+  nr: number
+  name: string
+  slug: string
+  date: string
+  gesamt: number
+  location: number | null
+  service: number | null
+  essen: number | null
+}
+
+function bestVisit(visits: Visit[]): BestVisit | null {
+  const v = [...scored(visits)].sort((a, b) => b.averages.gesamt! - a.averages.gesamt! || a.date.localeCompare(b.date))[0]
+  if (!v) return null
+  const { location, service, essen, gesamt } = v.averages
+  return { nr: v.nr, name: v.brauhaus, slug: v.slug, date: v.date, gesamt: gesamt!, location, service, essen }
+}
+
 /** every rated Brauhaus, highest Ø Gesamt first (repeat visits = mean of their visits) */
 function rankBrauhaeuser(visits: Visit[]): BestBrauhaus[] {
   return [...groupBy(scored(visits), v => v.slug).values()].map((vs) => {
@@ -97,7 +116,7 @@ const overviewStats = {
   kosten: sum(visits.map(v => v.rechnung)),
   ersterBesuch: visits[0]?.date ?? null,
   letzterBesuch: visits.at(-1)?.date ?? null,
-  bestesBrauhaus: brauhausRanking[0] ?? null,
+  bestesBrauhaus: bestVisit(visits),
   besterPlaner: bestPlaner(visits),
 }
 

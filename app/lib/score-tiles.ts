@@ -10,6 +10,8 @@ export interface ScoreTile {
   date: string
   /** null = no score in this metric (shown as "–", sorted last) */
   scores: Record<Metric, number | null>
-  /** optional violet badge, e.g. "geplant" */
+  /** optional badge, e.g. "geplant" */
   badge?: string
+  /** 'accent' (default): violet with crown · 'subtle': takes the tile's own colour */
+  badgeTone?: 'accent' | 'subtle'
 }

@@ -149,7 +149,14 @@ const items = computed(() => {
                     :class="t.light ? 'text-white/80' : 'text-muted-foreground'"
                   >{{ formatDate(t.date) }}</span>
                   <span
-                    v-if="t.badge"
+                    v-if="t.badge && t.badgeTone === 'subtle'"
+                    class="inline-flex shrink-0 items-center rounded-full border border-current/30 bg-transparent px-1.5 py-0.5 text-[10px] font-medium"
+                    :class="t.light ? 'text-white/80' : 'text-muted-foreground'"
+                  >
+                    {{ t.badge }}
+                  </span>
+                  <span
+                    v-else-if="t.badge"
                     class="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-950 dark:text-violet-200"
                   >
                     <Crown

@@ -15,6 +15,12 @@ useHead({ title: `${brauhaus.name} · Stammtisch-Tracker` })
 
 /** index into brauhaus.visits (newest first) */
 const selected = ref('0')
+
+/** ?besuch=<nr> opens that visit's tab (after hydration, so the prerendered HTML still matches) */
+onMounted(() => {
+  const i = brauhaus.visits.findIndex(v => String(v.nr) === String(route.query.besuch))
+  if (i > 0) selected.value = String(i)
+})
 const visit = computed(() => brauhaus.visits[Number(selected.value)]!)
 const compare = computed(() => brauhaus.visits[Number(selected.value) + 1] ?? null)
 

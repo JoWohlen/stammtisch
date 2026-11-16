@@ -65,7 +65,7 @@ const categories = b
       <div class="grid gap-3 md:grid-cols-2">
         <NuxtLink
           v-if="b"
-          :to="`/brauhaus/${b.slug}`"
+          :to="`/brauhaus/${b.slug}?besuch=${b.nr}`"
           class="group flex flex-col gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 p-4 transition-colors hover:bg-amber-100 dark:border-amber-500/60 dark:bg-amber-500/10 dark:hover:bg-amber-500/15"
         >
           <div class="flex items-start justify-between gap-3">
@@ -104,7 +104,7 @@ const categories = b
             </div>
           </div>
           <span class="flex items-center gap-1 text-xs text-muted-foreground">
-            Höchster Ø Gesamt{{ b.besuche > 1 ? ` aus ${b.besuche} Besuchen` : '' }}
+            Bester Abend · {{ formatDate(b.date) }}
             <ChevronRight
               class="size-3 transition-transform group-hover:translate-x-0.5"
               aria-hidden="true"
