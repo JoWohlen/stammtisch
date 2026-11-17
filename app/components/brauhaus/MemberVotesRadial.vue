@@ -11,6 +11,18 @@ const props = defineProps<{
   avg: number | null
 }>()
 
+const { memberPath } = useStammtisch()
+const router = useRouter()
+/** full href (incl. app base URL) for the SVG <a>, which NuxtLink can't render */
+const memberHref = (name: string) => {
+  const path = memberPath(name)
+  return path ? router.resolve(path).href : undefined
+}
+const openMember = (name: string) => {
+  const path = memberPath(name)
+  if (path) navigateTo(path)
+}
+
 const MAX = 5
 /** A 5 is a full circle, a 0 draws no arc. */
 const SWEEP = 360
@@ -75,9 +87,12 @@ const rings = computed(() => {
         role="img"
         :aria-label="`${label}: ${rings.map(r => `${r.name} ${formatVote(r.score)}`).join(', ')}`"
       >
-        <g
+        <a
           v-for="ring in rings"
           :key="ring.name"
+          :href="memberHref(ring.name)"
+          class="cursor-pointer transition-opacity hover:opacity-80"
+          @click.exact.prevent="openMember(ring.name)"
         >
           <title>{{ ring.name }}: {{ formatVote(ring.score) }}</title>
           <circle
@@ -96,7 +111,7 @@ const rings = computed(() => {
             :stroke-width="ring.width"
             stroke-linecap="round"
           />
-        </g>
+        </a>
         <!-- value labels left of the 12 o'clock start, drawn on top with a halo so they stay readable over full rings -->
         <text
           v-for="ring in rings"

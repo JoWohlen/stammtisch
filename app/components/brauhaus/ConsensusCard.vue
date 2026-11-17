@@ -34,7 +34,7 @@ const mostDivided = computed(() => {
     v-if="label"
     class="py-4"
   >
-    <CardContent class="flex items-start gap-3 px-4 sm:px-6">
+    <CardContent class="flex items-start gap-3">
       <component
         :is="ICONS[label.tone]"
         class="mt-0.5 size-5 shrink-0"

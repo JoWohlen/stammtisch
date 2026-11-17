@@ -5,7 +5,7 @@ import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const props = defineProps<{ visit: Visit }>()
 
-const { participants, getAwards } = useStammtisch()
+const { getAwards, memberPath } = useStammtisch()
 
 const awards = computed(() => getAwards(props.visit))
 const TONE = {
@@ -19,7 +19,7 @@ const dash = (n: number | null, f: (x: number) => string = x => formatNumber(x))
 const heads = computed(() => (props.visit.mitglieder ?? 0) + (props.visit.gaeste ?? 0))
 const perHead = (n: number | null) => (n != null && heads.value > 0 ? n / heads.value : null)
 const raters = computed(() => new Set(Object.values(props.visit.ratings).flatMap(Object.keys)).size)
-const planerSlug = computed(() => participants.find(p => p.name === props.visit.planer)?.slug ?? null)
+const planerPath = computed(() => memberPath(props.visit.planer))
 
 const tiles = computed(() => {
   const v = props.visit
@@ -52,11 +52,11 @@ const tiles = computed(() => {
           <Hash /> Besuch Nr. {{ visit.nr }}
         </Badge>
         <Badge
-          v-if="visit.planer && planerSlug"
+          v-if="planerPath"
           variant="outline"
           as-child
         >
-          <NuxtLink :to="`/teilnehmer/${planerSlug}`">
+          <NuxtLink :to="planerPath">
             <Compass /> Planer: {{ visit.planer }}
           </NuxtLink>
         </Badge>
@@ -78,8 +78,17 @@ const tiles = computed(() => {
           variant="outline"
           :class="TONE[a.tone]"
           :title="a.hint"
+          :as-child="!!memberPath(a.member)"
         >
-          <component :is="a.icon" /> {{ a.label }}
+          <NuxtLink
+            v-if="memberPath(a.member)"
+            :to="memberPath(a.member)!"
+          >
+            <component :is="a.icon" /> {{ a.label }}
+          </NuxtLink>
+          <template v-else>
+            <component :is="a.icon" /> {{ a.label }}
+          </template>
         </Badge>
       </CardDescription>
     </CardHeader>

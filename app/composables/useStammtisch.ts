@@ -231,6 +231,13 @@ const getAwards = (v: Visit): Award[] => awards.get(v.nr) ?? []
 const funFacts = computeFunFacts(visits, data.participants)
 
 /** All data is static (imported at build time), so no reactivity is needed. */
+const memberSlugs = new Map(data.participants.map(p => [p.name, p.slug]))
+/** route to a member's page, or null for names without one */
+const memberPath = (name: string | null | undefined): string | null => {
+  const slug = name ? memberSlugs.get(name) : undefined
+  return slug ? `/teilnehmer/${slug}` : null
+}
+
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getTeilnehmer, getAwards, funFacts }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getTeilnehmer, getAwards, funFacts, memberPath }
 }

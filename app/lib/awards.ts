@@ -12,6 +12,8 @@ export interface Award {
   tone: AwardTone
   /** explains the tag on hover */
   hint: string
+  /** member the award is about, links the tag to their page */
+  member?: string
 }
 
 const EPS = 1e-9
@@ -76,7 +78,7 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
 
     for (const name of names) {
       if (v !== first && joined.get(name) === v) {
-        push({ key: `join-${name}`, label: `${name} wird Mitglied`, icon: PartyPopper, tone: 'neutral', hint: `${name}s erster Stammtisch` })
+        push({ key: `join-${name}`, label: `${name} wird Mitglied`, icon: PartyPopper, tone: 'neutral', hint: `${name}s erster Stammtisch`, member: name })
       }
     }
 

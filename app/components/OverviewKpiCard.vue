@@ -26,16 +26,19 @@ const categories = b
 <template>
   <Card>
     <CardHeader>
-      <CardTitle class="text-2xl">
+      <CardTitle class="text-xl whitespace-nowrap sm:text-2xl">
         Auf einen Blick
       </CardTitle>
-      <CardDescription v-if="s.ersterBesuch && s.letzterBesuch">
-        {{ formatDate(s.ersterBesuch) }} – {{ formatDate(s.letzterBesuch) }} · {{ s.besuche }} Stammtische
+      <CardDescription
+        v-if="s.ersterBesuch && s.letzterBesuch"
+      >
+        {{ formatDate(s.ersterBesuch) }} – {{ formatDate(s.letzterBesuch) }}<span class="max-sm:hidden"> · </span>
+        <span class="max-sm:block">{{ s.besuche }} Stammtische</span>
       </CardDescription>
-      <CardAction class="flex flex-wrap justify-end gap-2">
+      <CardAction class="flex flex-wrap justify-end gap-2 max-sm:flex-col max-sm:items-stretch">
         <NuxtLink
           to="/satzung"
-          class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+          class="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
         >
           <ScrollText
             class="size-4"

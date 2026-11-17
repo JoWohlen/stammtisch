@@ -3,16 +3,19 @@ import { memberColor } from '@/lib/members'
 
 /** The only place on the page that maps colours to members. */
 defineProps<{ names: string[] }>()
+
+const { memberPath } = useStammtisch()
 </script>
 
 <template>
   <Card class="py-3">
-    <CardContent class="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 sm:px-6">
+    <CardContent class="flex flex-wrap items-center gap-x-5 gap-y-2">
       <span class="text-sm text-muted-foreground">Mitglieder:</span>
-      <span
+      <NuxtLink
         v-for="name in names"
         :key="name"
-        class="inline-flex items-center gap-2 text-sm font-medium"
+        :to="memberPath(name) ?? undefined"
+        class="inline-flex items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
       >
         <span
           class="size-3 rounded-full"
@@ -20,7 +23,7 @@ defineProps<{ names: string[] }>()
           aria-hidden="true"
         />
         {{ name }}
-      </span>
+      </NuxtLink>
     </CardContent>
   </Card>
 </template>
