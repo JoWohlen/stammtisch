@@ -18,6 +18,8 @@ export interface Visit {
   bierpreis: number | null
   kurze: number | null
   planer: string | null
+  /** location from the "Koordinaten" column (Google Maps "lat, lng"), null if missing */
+  coords: Coords | null
   ratings: Record<Category, ScoreMap>
   averages: Record<Category, number | null> & {
     gesamt: number | null
@@ -35,4 +37,28 @@ export interface StammtischData {
   generatedAt: string
   visits: Visit[]
   participants: Participant[]
+}
+
+export interface Coords {
+  lat: number
+  lng: number
+}
+
+/** [lng, lat] pairs, closed (first = last) */
+export type Ring = [number, number][]
+
+export interface District {
+  nummer: string
+  name: string
+  /** the Stadtbezirk this area belongs to (for a Stadtbezirk: its own name) */
+  stadtbezirk: string
+  /** each polygon = outer ring + optional holes */
+  polygons: Ring[][]
+}
+
+/** data/koeln-geo.json, written by scripts/fetch-geo.ts */
+export interface KoelnGeo {
+  source: string
+  stadtteile: District[]
+  stadtbezirke: District[]
 }

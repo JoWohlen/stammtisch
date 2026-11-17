@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
-import type { Category, Participant, ScoreMap, StammtischData, Visit } from '../shared/types'
+import type { Category, Coords, Participant, ScoreMap, StammtischData, Visit } from '../shared/types'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const SRC = `${root}data/Stammtisch.xlsx`
@@ -57,6 +57,28 @@ function readTable(wb: XLSX.WorkBook, sheet: string): { header: string[], rows: 
   return { header, rows }
 }
 
+/** Header names (lowercase) accepted for the coordinates column (optional). */
+const COORD_HEADERS = ['koordinaten', 'koordinate', 'geokoordinaten', 'geo', 'lat, lng', 'latitude, longitude']
+
+/**
+ * Parses a location as copied from Google Maps ("50.93836, 6.95995"), also with decimal commas
+ * ("50,93836; 6,95995"). Empty → null. Anything else, or a point far away from the Cologne area, throws.
+ */
+function coords(v: Cell, brauhaus: string): Coords | null {
+  const s = clean(v)
+  if (!s || s === '-') return null
+  const nums = s.match(/-?\d+(?:[.,]\d+)?/g)?.map(n => Number(n.replace(',', '.')))
+  const [lat, lng] = nums ?? []
+  if (nums?.length !== 2 || lat == null || lng == null) {
+    throw new Error(`Koordinaten von "${brauhaus}" nicht lesbar: "${s}" (erwartet: "50.93836, 6.95995")`)
+  }
+  // Rhineland plausibility check, catches swapped lat/lng
+  if (lat < 49 || lat > 53 || lng < 5 || lng > 9) {
+    throw new Error(`Koordinaten von "${brauhaus}" liegen nicht im Rheinland: "${s}" (Reihenfolge Breite, Länge?)`)
+  }
+  return { lat, lng }
+}
+
 /** Index of the n-th (0-based) column with this header name. */
 function col(header: string[], name: string, nth = 0): number {
   let seen = 0
@@ -84,6 +106,7 @@ function main() {
     planer: col(H, 'Planer'),
     datum: col(H, 'Datum'),
     nr: col(H, 'Nr'),
+    coords: H.findIndex(h => COORD_HEADERS.includes(h.toLowerCase())),
   }
 
   const ratingTables = Object.fromEntries(
@@ -146,6 +169,7 @@ function main() {
       bierpreis: num(r[c.bierpreis]),
       kurze: num(r[c.kurze]),
       planer: person(r[c.planer]),
+      coords: c.coords >= 0 ? coords(r[c.coords], brauhaus) : null,
       ratings,
       averages: {
         location: round2(catAvg.location),

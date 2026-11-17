@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "nuxt typecheck",
     "convert": "tsx scripts/convert-xlsx.ts",
+    "fetch-geo": "tsx scripts/fetch-geo.ts",
     "predev": "pnpm convert",
     "prebuild": "pnpm convert",
     "pregenerate": "pnpm convert",
