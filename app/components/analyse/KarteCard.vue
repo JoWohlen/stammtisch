@@ -184,13 +184,13 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
       <CardTitle class="text-xl">
         Köln-Karte
       </CardTitle>
-      <CardDescription>
+      <CardDescription class="max-sm:col-start-1">
         In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
         Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
       </CardDescription>
-      <CardAction>
+      <CardAction class="max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
         <div
-          class="inline-flex rounded-lg border p-0.5 text-sm"
+          class="inline-flex rounded-lg border p-0.5 text-sm max-sm:flex max-sm:w-full"
           role="radiogroup"
           aria-label="Gliederung"
         >
@@ -200,7 +200,7 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
             type="button"
             role="radio"
             :aria-checked="level === l.key"
-            class="rounded-md px-2.5 py-1 transition-colors"
+            class="rounded-md px-2.5 py-1 transition-colors max-sm:flex-1"
             :class="level === l.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
             @click="level = l.key"
           >

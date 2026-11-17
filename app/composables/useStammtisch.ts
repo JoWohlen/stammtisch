@@ -272,5 +272,5 @@ const memberPath = (name: string | null | undefined): string | null => {
 }
 
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getNachbarn, getTeilnehmer, getAwards, funFacts, memberPath }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, brauhaeuser: [...brauhaeuser.values()], getBrauhaus, getNachbarn, getTeilnehmer, getAwards, funFacts, memberPath }
 }
