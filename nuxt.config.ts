@@ -25,6 +25,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'de' },
       title: 'Stammtisch-Tracker',
+      meta: [{ name: 'robots', content: 'noindex, nofollow' }],
     },
   },
   css: ['~/assets/css/main.css'],
