@@ -96,5 +96,7 @@ const raters = computed(() => {
       :name="brauhaus.name"
       :ort="brauhaus.ort"
     />
+
+    <BrauhausNachbarnLegend :slug="brauhaus.slug" />
   </main>
 </template>

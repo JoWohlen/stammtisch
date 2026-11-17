@@ -2,6 +2,7 @@
 import type { Coords, District, KoelnGeo } from '#shared/types'
 import rawGeo from '../../../data/koeln-geo.json'
 import { contains, districtPath, fitProjection, labelPoint } from '@/lib/geo'
+import { useElementSize } from '@vueuse/core'
 import { groupBy } from '@/lib/stats'
 
 const geo = rawGeo as KoelnGeo
@@ -104,29 +105,67 @@ const colorOf = (n: number): string | undefined => bins.value.find(b => n >= b.m
 
 const activeNr = ref<string | null>(null)
 const activeArea = computed(() => areas.value.find(a => a.district.nummer === activeNr.value) ?? null)
-watch(level, () => (activeNr.value = null))
-
 /** tooltip only for hovers on the map itself, the list just highlights */
 const fromMap = ref(false)
+/** touch: a tapped district stays open until it is tapped again */
+const pinned = ref(false)
 const box = ref<HTMLElement | null>(null)
 const pointer = ref({ x: 0, y: 0, w: 0, h: 0 })
 
-function onMove(e: PointerEvent, a: Area) {
+function clear() {
+  activeNr.value = null
+  pinned.value = false
+}
+watch(level, clear)
+
+function show(e: PointerEvent, a: Area) {
   activeNr.value = a.district.nummer
   fromMap.value = true
   const rect = box.value?.getBoundingClientRect()
   if (rect) pointer.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, w: rect.width, h: rect.height }
 }
 
+/** mouse: follow the cursor (unless a district was pinned by touch) */
+function onMove(e: PointerEvent, a: Area) {
+  if (e.pointerType === 'mouse' && !pinned.value) show(e, a)
+}
+
+/** touch/pen: tap opens and pins, tapping the same district again closes, another one switches */
+function onTap(e: PointerEvent, a: Area) {
+  if (e.pointerType === 'mouse') return
+  if (pinned.value && activeNr.value === a.district.nummer) return clear()
+  show(e, a)
+  pinned.value = true
+}
+
+/** hover only — touch "leaves" right after every tap */
+function onLeave(e: PointerEvent) {
+  if (e.pointerType === 'mouse' && !pinned.value) activeNr.value = null
+}
+
+function onListEnter(e: PointerEvent, a: Area) {
+  if (e.pointerType !== 'mouse' || pinned.value) return
+  activeNr.value = a.district.nummer
+  fromMap.value = false
+}
+
+const tip = ref<HTMLElement | null>(null)
+const tipSize = useElementSize(tip, undefined, { box: 'border-box' })
+
+/** next to the pointer, on the side with more room, then clamped so it never leaves the map (= the screen) */
 const tooltipStyle = computed(() => {
+  const GAP = 12
   const { x, y, w, h } = pointer.value
-  const left = x > w / 2
-  const below = y < h / 2
+  const tw = tipSize.width.value
+  const th = tipSize.height.value
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(v, Math.max(0, max)))
+  const left = x > w / 2 ? x - GAP - tw : x + GAP
+  const top = y > h / 2 ? y - GAP - th : y + GAP
   return {
-    left: left ? undefined : `${x + 12}px`,
-    right: left ? `${w - x + 12}px` : undefined,
-    top: below ? `${y + 12}px` : undefined,
-    bottom: below ? undefined : `${h - y + 12}px`,
+    left: `${clamp(left, w - tw)}px`,
+    top: `${clamp(top, h - th)}px`,
+    // hidden for the one frame before its size is known
+    visibility: tw ? undefined : 'hidden' as const,
   }
 })
 
@@ -176,7 +215,7 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
         <div
           ref="box"
           class="relative"
-          @pointerleave="activeNr = null"
+          @pointerleave="onLeave"
         >
           <svg
             :viewBox="`0 0 ${proj.width} ${proj.height}`"
@@ -197,7 +236,7 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
                 stroke-width="1"
                 stroke-linejoin="round"
                 @pointermove="onMove($event, a)"
-                @pointerdown="onMove($event, a)"
+                @pointerup="onTap($event, a)"
               />
             </g>
 
@@ -257,7 +296,8 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
           <!-- tooltip -->
           <div
             v-if="activeArea && fromMap"
-            class="pointer-events-none absolute z-10 w-60 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+            ref="tip"
+            class="pointer-events-none absolute z-10 w-60 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
             :style="tooltipStyle"
           >
             <div class="font-semibold leading-tight">
@@ -332,8 +372,8 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
             v-for="a in ranking"
             :key="a.district.nummer"
             class="flex items-center gap-2"
-            @pointerenter="activeNr = a.district.nummer; fromMap = false"
-            @pointerleave="activeNr = null"
+            @pointerenter="onListEnter($event, a)"
+            @pointerleave="onLeave"
           >
             <span
               class="size-3 shrink-0 rounded-sm"

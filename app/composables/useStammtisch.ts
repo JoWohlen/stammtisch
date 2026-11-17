@@ -2,6 +2,7 @@ import type { Category, Coords, Lage, StammtischData, Visit } from '#shared/type
 import raw from '../../data/stammtisch.json'
 import { computeAwards, type Award } from '@/lib/awards'
 import { computeFunFacts } from '@/lib/funfacts'
+import { distance } from '@/lib/geo'
 import { CATEGORIES, groupBy, heads, mean, sum } from '@/lib/stats'
 
 const data = raw as StammtischData
@@ -138,6 +139,27 @@ const brauhaeuser = new Map<string, Brauhaus>(
 
 const getBrauhaus = (slug: string): Brauhaus | null => brauhaeuser.get(slug) ?? null
 
+export interface Nachbar {
+  name: string
+  slug: string
+  /** straight-line distance in meters */
+  meter: number
+}
+
+/** other Brauhäuser within `radius` meters (straight line), closest first */
+function getNachbarn(slug: string, radius = 1000): Nachbar[] {
+  const from = brauhaeuser.get(slug)?.ort.coords
+  if (!from) return []
+  return [...brauhaeuser.values()]
+    .flatMap((b) => {
+      const to = b.ort.coords
+      if (b.slug === slug || !to) return []
+      const meter = distance(from, to)
+      return meter <= radius ? [{ name: b.name, slug: b.slug, meter }] : []
+    })
+    .sort((a, b) => a.meter - b.meter)
+}
+
 /** One visit seen through one member: their own votes (null = did not rate that category). */
 export interface MemberVote {
   visit: Visit
@@ -250,5 +272,5 @@ const memberPath = (name: string | null | undefined): string | null => {
 }
 
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getTeilnehmer, getAwards, funFacts, memberPath }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, getBrauhaus, getNachbarn, getTeilnehmer, getAwards, funFacts, memberPath }
 }
