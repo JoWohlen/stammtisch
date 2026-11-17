@@ -1,19 +1,9 @@
 <script setup lang="ts">
 import type { Visit } from '#shared/types'
 import { formatNumber } from '@/lib/format'
+import { groupBy, mean } from '@/lib/stats'
 
 const { visits } = useStammtisch()
-
-const mean = (xs: number[]) => xs.reduce((a, c) => a + c, 0) / xs.length
-
-function groupBy<T>(xs: T[], key: (x: T) => string | null): Map<string, T[]> {
-  const m = new Map<string, T[]>()
-  for (const x of xs) {
-    const k = key(x)
-    if (k != null) m.set(k, [...(m.get(k) ?? []), x])
-  }
-  return m
-}
 
 const withLiter = visits.filter((v): v is Visit & { liter: number } => v.liter != null)
 

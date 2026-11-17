@@ -1,6 +1,7 @@
-import type { Category, ScoreMap, Visit } from '#shared/types'
+import type { ScoreMap, Visit } from '#shared/types'
+import { CATEGORIES } from '@/lib/stats'
 
-export const CATEGORIES: Category[] = ['location', 'service', 'essen']
+export { CATEGORIES }
 
 /** population standard deviation of one category's votes, null with fewer than 2 votes */
 export function spread(scores: ScoreMap): number | null {

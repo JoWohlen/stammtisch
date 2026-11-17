@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import { Banknote, Droplets, Flag, Handshake, MapPin, Martini, PartyPopper, PiggyBank, Scale, TrendingUp, Trophy, UserPlus, UsersRound, Utensils } from '@lucide/vue'
 import type { Participant, Visit } from '#shared/types'
+import { byDate as sortByDate, heads, raterNames } from '@/lib/stats'
 
 export type AwardTone = 'good' | 'bad' | 'neutral'
 
@@ -14,8 +15,6 @@ export interface Award {
 }
 
 const EPS = 1e-9
-const raterNames = (v: Visit) => new Set(Object.values(v.ratings).flatMap(Object.keys))
-const heads = (v: Visit) => (v.mitglieder ?? 0) + (v.gaeste ?? 0)
 
 /** visit numbers that reach the extreme of `get` (ties all win), ignoring missing values */
 function extreme(visits: Visit[], get: (v: Visit) => number | null, dir: 'max' | 'min'): Set<number> {
@@ -39,7 +38,7 @@ interface Rule {
 
 /** Tags per visit (by visit nr), derived from all visits. Static data → call once. */
 export function computeAwards(visits: Visit[], participants: Participant[]): Map<number, Award[]> {
-  const byDate = [...visits].sort((a, b) => a.date.localeCompare(b.date) || a.nr - b.nr)
+  const byDate = sortByDate(visits)
   const first = byDate[0]
 
   // a member joins with their first rating; the founders of the first Stammtisch don't "join"
@@ -66,6 +65,8 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
     { key: 'bp-', label: 'Billigstes Bier', icon: PiggyBank, tone: 'good', hint: 'Niedrigster Bierpreis', winners: extreme(visits, v => v.bierpreis, 'min') },
   ]
 
+  const names = participants.map(p => p.name)
+  const joinedList = [...joined.entries()]
   const awards = new Map<number, Award[]>()
   for (const v of byDate) {
     const list: Award[] = []
@@ -73,7 +74,7 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
 
     if (v === first) push({ key: 'first', label: 'Erster Stammtisch', icon: Flag, tone: 'neutral', hint: 'Hier hat alles angefangen' })
 
-    for (const name of participants.map(p => p.name)) {
+    for (const name of names) {
       if (v !== first && joined.get(name) === v) {
         push({ key: `join-${name}`, label: `${name} wird Mitglied`, icon: PartyPopper, tone: 'neutral', hint: `${name}s erster Stammtisch` })
       }
@@ -81,7 +82,7 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
 
     // full house: everyone who had joined by this date rated it (newcomers count from their first visit on)
     const present = raterNames(v)
-    const members = [...joined.entries()].filter(([, j]) => j.date <= v.date).map(([n]) => n)
+    const members = joinedList.filter(([, j]) => j.date <= v.date).map(([n]) => n)
     if (members.length && members.every(n => present.has(n))) {
       push({ key: 'voll', label: 'Vollständig', icon: UsersRound, tone: 'good', hint: 'Alle Mitglieder waren da' })
     }

@@ -2,22 +2,11 @@ import type { Category, StammtischData, Visit } from '#shared/types'
 import raw from '../../data/stammtisch.json'
 import { computeAwards, type Award } from '@/lib/awards'
 import { computeFunFacts } from '@/lib/funfacts'
+import { CATEGORIES, groupBy, heads, mean, sum } from '@/lib/stats'
 
 const data = raw as StammtischData
 
-const sum = (xs: (number | null)[]): number => xs.reduce<number>((a, b) => a + (b ?? 0), 0)
-const mean = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length
 const scored = (vs: Visit[]) => vs.filter(v => v.averages.gesamt != null)
-
-function groupBy<T>(xs: T[], key: (x: T) => string | null): Map<string, T[]> {
-  const m = new Map<string, T[]>()
-  for (const x of xs) {
-    const k = key(x)
-    if (k == null) continue
-    m.set(k, [...(m.get(k) ?? []), x])
-  }
-  return m
-}
 
 export interface BestBrauhaus {
   name: string
@@ -138,8 +127,6 @@ const brauhaeuser = new Map<string, Brauhaus>(
 
 const getBrauhaus = (slug: string): Brauhaus | null => brauhaeuser.get(slug) ?? null
 
-const CATEGORIES: Category[] = ['location', 'service', 'essen']
-
 /** One visit seen through one member: their own votes (null = did not rate that category). */
 export interface MemberVote {
   visit: Visit
@@ -184,7 +171,6 @@ export interface Teilnehmer {
   } | null
 }
 
-const heads = (v: Visit): number => (v.mitglieder ?? 0) + (v.gaeste ?? 0)
 const perHead = (v: Visit, n: number | null): number => (n != null && heads(v) > 0 ? n / heads(v) : 0)
 
 function buildTeilnehmer(name: string, slug: string): Teilnehmer | null {

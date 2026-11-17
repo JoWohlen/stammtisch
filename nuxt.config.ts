@@ -18,7 +18,7 @@ const detailRoutes = (): string[] => {
 }
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', 'nuxt-charts', 'shadcn-nuxt'],
+  modules: ['@nuxt/eslint', 'shadcn-nuxt'],
   devtools: { enabled: true },
   app: {
     head: {

@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import type { ScoreTile } from '@/lib/score-tiles'
 import { formatScore } from '@/lib/format'
+import { byDate as sortByDate, groupBy } from '@/lib/stats'
 
 const { visits } = useStammtisch()
 
-const byDate = [...visits].sort((a, b) => a.date.localeCompare(b.date) || a.nr - b.nr)
-const visitsOf = (slug: string) => byDate.filter(v => v.slug === slug)
+const byDate = sortByDate(visits)
+const visitsOf = groupBy(byDate, v => v.slug)
 
 /** one tile per visit: repeat visits of a Brauhaus show up once per visit */
 const tiles: ScoreTile[] = byDate.map((v) => {
-  const all = visitsOf(v.slug)
+  const all = visitsOf.get(v.slug)!
   return {
     key: String(v.nr),
     name: v.brauhaus,

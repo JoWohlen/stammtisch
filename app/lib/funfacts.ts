@@ -1,5 +1,6 @@
 import type { Category, Participant, Visit } from '#shared/types'
-import { formatEuro, formatNumber, formatScore, formatVote } from '@/lib/format'
+import { formatEuro, formatNumber, formatScore, formatUpTo1, formatVote } from '@/lib/format'
+import { byDate as sortByDate, CATEGORIES, groupBy, heads, mean, raterNames as raters, sum } from '@/lib/stats'
 
 export type FunFactCategory = 'bier' | 'kurze' | 'geld' | 'termine' | 'brauhaus' | 'mitglieder' | 'gaeste' | 'zusammenhang'
 
@@ -22,23 +23,20 @@ export const FUN_FACT_CATEGORY_LABEL: Record<FunFactCategory, string> = {
 
 // ---- helpers ------------------------------------------------------------
 
-const CATEGORIES: Category[] = ['location', 'service', 'essen']
 const CATEGORY_NAME: Record<Category, string> = { location: 'die Location', service: 'den Service', essen: 'das Essen' }
 const CATEGORY_DAT: Record<Category, string> = { location: 'der Location', service: 'dem Service', essen: 'dem Essen' }
 const CATEGORY_LABEL: Record<Category, string> = { location: 'Location', service: 'Service', essen: 'Essen & Trinken' }
 const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 const MIN_VISITS = 5
 
-const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
-const mean = (xs: number[]) => sum(xs) / xs.length
 const n0 = (n: number) => formatNumber(n, 0)
-const n1 = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 })
-const heads = (v: Visit) => (v.mitglieder ?? 0) + (v.gaeste ?? 0)
+const n1 = formatUpTo1
 const perHead = (v: Visit, x: number | null) => (x != null && heads(v) ? x / heads(v) : null)
-const raters = (v: Visit) => new Set(CATEGORIES.flatMap(c => Object.keys(v.ratings[c])))
 const day = (iso: string) => new Date(`${iso}T00:00:00`)
-const monthYear = (iso: string) => day(iso).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
-const monthName = (m: string) => new Date(2000, Number(m) - 1, 1).toLocaleDateString('de-DE', { month: 'long' })
+const MONTH_YEAR = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' })
+const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long' })
+const monthYear = (iso: string) => MONTH_YEAR.format(day(iso))
+const monthName = (m: string) => MONTH.format(new Date(2000, Number(m) - 1, 1))
 const times = (n: number) => (n === 1 ? 'einmal' : n === 2 ? 'zweimal' : n === 3 ? 'dreimal' : n === 4 ? 'viermal' : n === 5 ? 'fünfmal' : `${n0(n)}-mal`)
 
 /** "A", "A und B", "A, B und C" */
@@ -52,12 +50,6 @@ function count<T>(xs: T[], key: (x: T) => string | null): Map<string, number> {
     const k = key(x)
     if (k != null) m.set(k, (m.get(k) ?? 0) + 1)
   }
-  return m
-}
-
-function groupBy<T>(xs: T[], key: (x: T) => string): Map<string, T[]> {
-  const m = new Map<string, T[]>()
-  for (const x of xs) m.set(key(x), [...(m.get(key(x)) ?? []), x])
   return m
 }
 
@@ -87,7 +79,7 @@ interface Ctx {
   visits: Visit[]
   votes: Vote[]
   members: string[]
-  founders: Set<string>
+  founders: ReadonlySet<string>
   /** visits since a member's first rating */
   since: Map<string, Visit[]>
 }
@@ -422,7 +414,7 @@ const GENERATORS: Generator[] = [
 
 /** All fun facts, computed from the visits. Facts whose data is missing are left out. */
 export function computeFunFacts(visits: Visit[], participants: Participant[]): FunFact[] {
-  const byDate = [...visits].sort((a, b) => a.date.localeCompare(b.date) || a.nr - b.nr)
+  const byDate = sortByDate(visits)
   if (!byDate.length) return []
 
   const votes: Vote[] = byDate.flatMap(visit => CATEGORIES.flatMap(cat =>
