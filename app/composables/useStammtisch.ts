@@ -1,4 +1,4 @@
-import type { Category, StammtischData, Visit } from '#shared/types'
+import type { Category, Coords, Lage, StammtischData, Visit } from '#shared/types'
 import raw from '../../data/stammtisch.json'
 import { computeAwards, type Award } from '@/lib/awards'
 import { computeFunFacts } from '@/lib/funfacts'
@@ -111,18 +111,29 @@ const overviewStats = {
 
 export type OverviewStats = typeof overviewStats
 
+/** how to find a Brauhaus; each field from the newest visit that has it */
+export interface Ort {
+  adresse: string | null
+  website: string | null
+  coords: Coords | null
+  lage: Lage | null
+}
+
 export interface Brauhaus {
   name: string
   slug: string
   /** newest visit first */
   visits: Visit[]
+  ort: Ort
 }
 
 const brauhaeuser = new Map<string, Brauhaus>(
-  [...groupBy(visits, v => v.slug).entries()].map(([slug, vs]) => [
-    slug,
-    { name: vs[0]!.brauhaus, slug, visits: [...vs].sort((a, b) => b.date.localeCompare(a.date)) },
-  ]),
+  [...groupBy(visits, v => v.slug).entries()].map(([slug, vs]) => {
+    const sorted = [...vs].sort((a, b) => b.date.localeCompare(a.date))
+    const pick = <K extends keyof Ort>(k: K): Ort[K] => (sorted.find(v => v[k] != null)?.[k] ?? null) as Ort[K]
+    const ort: Ort = { adresse: pick('adresse'), website: pick('website'), coords: pick('coords'), lage: pick('lage') }
+    return [slug, { name: vs[0]!.brauhaus, slug, visits: sorted, ort }]
+  }),
 )
 
 const getBrauhaus = (slug: string): Brauhaus | null => brauhaeuser.get(slug) ?? null

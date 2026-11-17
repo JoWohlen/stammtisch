@@ -20,6 +20,12 @@ export interface Visit {
   planer: string | null
   /** location from the "Koordinaten" column (Google Maps "lat, lng"), null if missing */
   coords: Coords | null
+  /** Stadtteil/Stadtbezirk the coords fall into, null outside Cologne or without coords */
+  lage: Lage | null
+  /** street address as written in the xlsx */
+  adresse: string | null
+  /** restaurant website (always with protocol) */
+  website: string | null
   ratings: Record<Category, ScoreMap>
   averages: Record<Category, number | null> & {
     gesamt: number | null
@@ -37,6 +43,11 @@ export interface StammtischData {
   generatedAt: string
   visits: Visit[]
   participants: Participant[]
+}
+
+export interface Lage {
+  stadtteil: string
+  stadtbezirk: string
 }
 
 export interface Coords {

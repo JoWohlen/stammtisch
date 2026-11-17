@@ -91,5 +91,10 @@ const raters = computed(() => {
         :avg="visit.averages[c.key]"
       />
     </section>
+
+    <BrauhausOrtCard
+      :name="brauhaus.name"
+      :ort="brauhaus.ort"
+    />
   </main>
 </template>

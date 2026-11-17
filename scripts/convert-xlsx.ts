@@ -5,11 +5,13 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
-import type { Category, Coords, Participant, ScoreMap, StammtischData, Visit } from '../shared/types'
+import type { Category, Coords, KoelnGeo, Lage, Participant, ScoreMap, StammtischData, Visit } from '../shared/types'
+import { contains } from '../app/lib/geo'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const SRC = `${root}data/Stammtisch.xlsx`
 const OUT = `${root}data/stammtisch.json`
+const GEO = `${root}data/koeln-geo.json`
 
 const ALIASES: Record<string, string> = { Florian: 'Flo' }
 const RATING_SHEETS: Record<Category, string> = {
@@ -79,6 +81,17 @@ function coords(v: Cell, brauhaus: string): Coords | null {
   return { lat, lng }
 }
 
+/** website with protocol, "www.x.de" → "https://www.x.de" */
+function website(v: Cell): string | null {
+  const s = clean(v)
+  if (!s || s === '-') return null
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`
+}
+
+/** optional column: index or -1 */
+const optCol = (header: string[], ...names: string[]): number =>
+  header.findIndex(h => names.includes(h.toLowerCase()))
+
 /** Index of the n-th (0-based) column with this header name. */
 function col(header: string[], name: string, nth = 0): number {
   let seen = 0
@@ -106,8 +119,17 @@ function main() {
     planer: col(H, 'Planer'),
     datum: col(H, 'Datum'),
     nr: col(H, 'Nr'),
-    coords: H.findIndex(h => COORD_HEADERS.includes(h.toLowerCase())),
+    coords: optCol(H, ...COORD_HEADERS),
+    adresse: optCol(H, 'adresse'),
+    website: optCol(H, 'website', 'webseite', 'homepage'),
   }
+
+  const geo = JSON.parse(readFileSync(GEO, 'utf8')) as KoelnGeo
+  const lage = (c: Coords | null): Lage | null => {
+    const t = c && geo.stadtteile.find(d => contains(d, c))
+    return t ? { stadtteil: t.name, stadtbezirk: t.stadtbezirk } : null
+  }
+  const opt = (r: Row, i: number): Cell => (i >= 0 ? r[i] ?? null : null)
 
   const ratingTables = Object.fromEntries(
     (Object.entries(RATING_SHEETS) as [Category, string][]).map(([cat, sheet]) => {
@@ -154,6 +176,7 @@ function main() {
     const avgRechnung = rechnung != null && heads > 0 ? round2(rechnung / heads) : null
     const datum = num(r[c.datum])
     if (datum == null) throw new Error(`Visit "${brauhaus}" has no date`)
+    const point = coords(opt(r, c.coords), brauhaus)
 
     return {
       nr: num(r[c.nr]) ?? i + 1,
@@ -169,7 +192,10 @@ function main() {
       bierpreis: num(r[c.bierpreis]),
       kurze: num(r[c.kurze]),
       planer: person(r[c.planer]),
-      coords: c.coords >= 0 ? coords(r[c.coords], brauhaus) : null,
+      coords: point,
+      lage: lage(point),
+      adresse: clean(opt(r, c.adresse)) || null,
+      website: website(opt(r, c.website)),
       ratings,
       averages: {
         location: round2(catAvg.location),
