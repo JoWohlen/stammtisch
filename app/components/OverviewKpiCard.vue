@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Beer, CalendarDays, ChartLine, ChevronRight, Crown, GlassWater, Handshake, MapPin, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
+import { Beer, CalendarDays, ChartLine, ChevronRight, Crown, GlassWater, Handshake, MapPin, ScrollText, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
 import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const { overviewStats: s } = useStammtisch()
@@ -32,7 +32,17 @@ const categories = b
       <CardDescription v-if="s.ersterBesuch && s.letzterBesuch">
         {{ formatDate(s.ersterBesuch) }} – {{ formatDate(s.letzterBesuch) }} · {{ s.besuche }} Stammtische
       </CardDescription>
-      <CardAction>
+      <CardAction class="flex flex-wrap justify-end gap-2">
+        <NuxtLink
+          to="/satzung"
+          class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <ScrollText
+            class="size-4"
+            aria-hidden="true"
+          />
+          Satzung
+        </NuxtLink>
         <NuxtLink
           to="/analyse"
           class="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
