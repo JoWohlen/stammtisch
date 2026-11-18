@@ -34,7 +34,7 @@ const tiles = computed(() => {
     { label: 'Liter Bier', icon: GlassWater, value: dash(v.liter, { digits: 1, suffix: ' L' }) },
     { label: 'Bierpreis', icon: CircleDollarSign, value: dash(v.bierpreis, EURO) },
     { label: 'Kurze', icon: Martini, value: dash(v.kurze) },
-    { label: 'Biere pro Kopf', icon: Beer, value: dash(perHead(v.biere), { digits: 1 }) },
+    { label: 'Bier pro Kopf', icon: Beer, value: dash(perHead(v.biere), { digits: 1 }) },
   ]
 })
 </script>
