@@ -9,13 +9,14 @@ const rows = computePlanerBias(visits, participants)
 
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatNumber(Math.abs(n), 2)}`
 
-/** symmetric axis around 0, rounded up to 0.25 steps */
-const STEP = 0.25
-const LIMIT = Math.max(STEP, Math.ceil(Math.max(...rows.flatMap(r => [Math.abs(r.geplant), Math.abs(r.fremd)])) / STEP) * STEP)
-const TICK = LIMIT > 0.5 ? 0.5 : 0.25
-const ticks = Array.from({ length: Math.floor(LIMIT / TICK) * 2 + 1 }, (_, i) => (i - Math.floor(LIMIT / TICK)) * TICK)
+/** axis from −0,5 (further only if someone is below that) up to the highest value, in 0,5 steps */
+const TICK = 0.5
+const values = rows.flatMap(r => [r.geplant, r.fremd])
+const MIN = Math.min(-TICK, Math.floor(Math.min(...values) / TICK) * TICK)
+const MAX = Math.max(TICK, Math.ceil(Math.max(...values) / TICK) * TICK)
+const ticks = Array.from({ length: Math.round((MAX - MIN) / TICK) + 1 }, (_, i) => MIN + i * TICK)
 const tickLabel = (t: number) => (t === 0 ? '0' : `${t > 0 ? '+' : '−'}${formatUpTo1(Math.abs(t))}`)
-const pos = (n: number) => `${((n + LIMIT) / (2 * LIMIT)) * 100}%`
+const pos = (n: number) => `${((n - MIN) / (MAX - MIN)) * 100}%`
 
 /** below this many planned evenings a single night decides the value → faded, never the headline */
 const MIN_N = 3

@@ -165,7 +165,7 @@ const activeNr = ref<string | null>(null)
 const activeArea = computed(() => areas.value.find(a => a.district.nummer === activeNr.value) ?? null)
 /** tooltip only for hovers on the map itself, the list just highlights */
 const fromMap = ref(false)
-/** touch: a tapped district stays open until it is tapped again */
+/** touch: a tapped district stays open until the next tap anywhere on the map */
 const pinned = ref(false)
 const box = ref<HTMLElement | null>(null)
 const pointer = ref({ x: 0, y: 0, w: 0, h: 0 })
@@ -188,12 +188,21 @@ function onMove(e: PointerEvent, a: Area) {
   if (e.pointerType === 'mouse' && !pinned.value) show(e, a)
 }
 
-/** touch/pen: tap opens and pins, tapping the same district again closes, another one switches */
+/**
+ * touch/pen: a tap opens and pins a district; while one is open, the next tap anywhere on the map
+ * (another district, the info box above it, the river) only closes it, so another district takes a second tap
+ */
 function onTap(e: PointerEvent, a: Area) {
   if (e.pointerType === 'mouse') return
-  if (pinned.value && activeNr.value === a.district.nummer) return clear()
+  e.stopPropagation()
+  if (pinned.value) return clear()
   show(e, a)
   pinned.value = true
+}
+
+/** a tap on the map outside every district */
+function onMapTap(e: PointerEvent) {
+  if (e.pointerType !== 'mouse' && pinned.value) clear()
 }
 
 /** hover only — touch "leaves" right after every tap */
@@ -284,6 +293,7 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
           ref="box"
           class="relative"
           @pointerleave="onLeave"
+          @pointerup="onMapTap"
         >
           <svg
             :viewBox="`0 0 ${proj.width} ${proj.height}`"
