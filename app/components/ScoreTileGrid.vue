@@ -2,6 +2,7 @@
 import { ChevronDown, Crown } from '@lucide/vue'
 import type { Metric, ScoreTile } from '@/lib/score-tiles'
 import { formatDate, formatScore } from '@/lib/format'
+import { scoreColor, scoreGradient } from '@/lib/score-color'
 
 type Sort = Metric | 'datum'
 
@@ -21,9 +22,6 @@ const SORTS: { key: Sort, label: string }[] = [
   { key: 'service', label: 'Service' },
   { key: 'essen', label: 'Essen' },
 ]
-
-/** green-600; mixed with the theme's muted colour so both light and dark mode work */
-const GREEN = 'oklch(62.7% 0.194 149.214)'
 
 const open = ref(true)
 const sort = ref<Sort>('gesamt')
@@ -51,7 +49,7 @@ const items = computed(() => {
       rank: i + 1,
       value,
       light: f > 0.6,
-      bg: `color-mix(in oklch, ${GREEN} ${Math.round(f * 100)}%, var(--muted))`,
+      bg: value == null ? 'var(--muted)' : scoreColor(f),
     }
   })
 })
@@ -119,7 +117,7 @@ const items = computed(() => {
             >
               <div
                 class="h-2.5 rounded-full"
-                :style="{ background: `linear-gradient(to right, var(--muted), ${GREEN})` }"
+                :style="{ background: scoreGradient() }"
               />
               <div class="flex justify-between text-xs text-muted-foreground tabular-nums">
                 <span>{{ formatScore(range.min) }}</span>

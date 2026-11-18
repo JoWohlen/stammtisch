@@ -2,8 +2,11 @@
 import type { Coords, District, KoelnGeo } from '#shared/types'
 import rawGeo from '../../../data/koeln-geo.json'
 import { contains, districtPath, fitProjection, labelPoint } from '@/lib/geo'
+import type { Ref } from 'vue'
 import { useElementSize } from '@vueuse/core'
-import { groupBy } from '@/lib/stats'
+import { groupBy, mean } from '@/lib/stats'
+import { formatScore } from '@/lib/format'
+import { scoreColor, scoreGradient } from '@/lib/score-color'
 
 const geo = rawGeo as KoelnGeo
 const { visits } = useStammtisch()
@@ -15,12 +18,26 @@ const LEVELS: { key: Level, label: string }[] = [
 ]
 const level = ref<Level>('stadtteile')
 
+type Mode = 'anzahl' | 'bewertung'
+const MODES: { key: Mode, label: string }[] = [
+  { key: 'anzahl', label: 'Anzahl' },
+  { key: 'bewertung', label: 'Ø Bewertung' },
+]
+const mode = ref<Mode>('anzahl')
+
+const TOGGLES = [
+  { label: 'Gliederung', options: LEVELS, model: level },
+  { label: 'Färbung', options: MODES, model: mode },
+] as { label: string, options: { key: string, label: string }[], model: Ref<string> }[]
+
 /* ---------- restaurants (one per Brauhaus, repeat visits share a location) ---------- */
 
 interface Restaurant {
   name: string
   slug: string
   besuche: number
+  /** Ø Gesamt over all rated visits, null if never rated */
+  gesamt: number | null
   coords: Coords | null
   stadtteil: District | null
   stadtbezirk: District | null
@@ -28,10 +45,12 @@ interface Restaurant {
 
 const restaurants: Restaurant[] = [...groupBy(visits, v => v.slug).values()].map((vs) => {
   const coords = vs.find(v => v.coords)?.coords ?? null
+  const scores = vs.map(v => v.averages.gesamt).filter((x): x is number => x != null)
   return {
     name: vs[0]!.brauhaus,
     slug: vs[0]!.slug,
     besuche: vs.length,
+    gesamt: scores.length ? mean(scores) : null,
     coords,
     stadtteil: coords ? geo.stadtteile.find(d => contains(d, coords)) ?? null : null,
     stadtbezirk: coords ? geo.stadtbezirke.find(d => contains(d, coords)) ?? null : null,
@@ -53,20 +72,40 @@ interface Area {
   path: string
   label: [number, number]
   restaurants: Restaurant[]
+  /** Ø of the rated restaurants' Ø Gesamt (each Brauhaus counts once), null if none rated */
+  score: number | null
 }
 
-const buildAreas = (ds: District[], key: 'stadtteil' | 'stadtbezirk'): Area[] => ds.map(d => ({
-  district: d,
-  path: districtPath(d, proj),
-  label: labelPoint(d, proj),
-  restaurants: inKoeln.filter(r => r[key]?.nummer === d.nummer).sort((a, b) => a.name.localeCompare(b.name, 'de')),
-}))
+const buildAreas = (ds: District[], key: 'stadtteil' | 'stadtbezirk'): Area[] => ds.map((d) => {
+  const restaurants = inKoeln.filter(r => r[key]?.nummer === d.nummer).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  const scores = restaurants.map(r => r.gesamt).filter((x): x is number => x != null)
+  return {
+    district: d,
+    path: districtPath(d, proj),
+    label: labelPoint(d, proj),
+    restaurants,
+    score: scores.length ? mean(scores) : null,
+  }
+})
 
 const areasByLevel: Record<Level, Area[]> = {
   stadtteile: buildAreas(geo.stadtteile, 'stadtteil'),
   stadtbezirke: buildAreas(geo.stadtbezirke, 'stadtbezirk'),
 }
 const bezirkPaths = areasByLevel.stadtbezirke.map(a => a.path)
+
+/** Rhine centre line, drawn about as wide as the river really is (~350 m in Cologne) */
+const rheinPath = `M${geo.rhein.map(([lng, lat]) => proj.project(lng, lat).join(' ')).join('L')}`
+const pxPerMeter = (() => {
+  const [lng, lat] = geo.rhein[0]!
+  return Math.abs(proj.project(lng, lat)[1] - proj.project(lng, lat + 1000 / 111_320)[1]) / 1000
+})()
+const rheinWidth = Math.max(4, Math.round(350 * pxPerMeter))
+
+/** unique ids for the river mask / hover clip (several maps on one page must not share them) */
+const uid = useId()
+const maskId = `${uid}-ohne-rhein`
+const clipId = `${uid}-aktiv`
 
 const areas = computed(() => areasByLevel[level.value])
 
@@ -75,10 +114,10 @@ const dots = inKoeln.map((r) => {
   return { r, x, y }
 })
 
-/* ---------- color: sequential blue, binned counts ---------- */
+/* ---------- color: sequential amber (beer), binned counts ---------- */
 
-/** palette blue 250 → 700, validated as an ordinal ramp on the light surface */
-const RAMP = ['#86b6ef', '#3987e5', '#256abf', '#184f95', '#0d366b']
+/** ColorBrewer YlOrBr light amber → dark brown: ordinal, and clearly apart from the blue Rhine and the green scores */
+const RAMP = ['#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#8c2d04']
 const EDGES = [1, 2, 3, 5, 10, 20, 50]
 
 interface Bin { min: number, max: number, color: string, label: string }
@@ -99,7 +138,26 @@ const bins = computed<Bin[]>(() => {
   })
 })
 
-const colorOf = (n: number): string | undefined => bins.value.find(b => n >= b.min && n <= b.max)?.color
+const colorOfCount = (n: number): string | undefined => bins.value.find(b => n >= b.min && n <= b.max)?.color
+
+/* ---------- color: Ø Bewertung, green like the score tiles, stretched over the districts' range ---------- */
+
+const scoreRange = computed(() => {
+  const xs = areas.value.map(a => a.score).filter((x): x is number => x != null)
+  return xs.length ? { min: Math.min(...xs), max: Math.max(...xs) } : null
+})
+
+const colorOfScore = (s: number): string => {
+  const r = scoreRange.value!
+  const f = r.max > r.min ? (s - r.min) / (r.max - r.min) : 1
+  return scoreColor(f)
+}
+const gradient = scoreGradient()
+
+/** fill of an area in the current mode, undefined = no data (muted) */
+const fillOf = (a: Area): string | undefined => mode.value === 'anzahl'
+  ? (a.restaurants.length ? colorOfCount(a.restaurants.length) : undefined)
+  : (a.score != null ? colorOfScore(a.score) : undefined)
 
 /* ---------- hover / tap ---------- */
 
@@ -171,9 +229,12 @@ const tooltipStyle = computed(() => {
 
 /* ---------- ranking (table view of the same data) ---------- */
 
-const ranking = computed(() => areas.value
-  .filter(a => a.restaurants.length)
-  .sort((a, b) => b.restaurants.length - a.restaurants.length || a.district.name.localeCompare(b.district.name, 'de')))
+const ranking = computed(() => {
+  const byName = (a: Area, b: Area) => a.district.name.localeCompare(b.district.name, 'de')
+  return mode.value === 'anzahl'
+    ? areas.value.filter(a => a.restaurants.length).sort((a, b) => b.restaurants.length - a.restaurants.length || byName(a, b))
+    : areas.value.filter(a => a.score != null).sort((a, b) => b.score! - a.score! || byName(a, b))
+})
 
 const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
 </script>
@@ -185,26 +246,33 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
         Köln-Karte
       </CardTitle>
       <CardDescription class="max-sm:col-start-1">
-        In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
+        <template v-if="mode === 'anzahl'">
+          In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
+        </template>
+        <template v-else>
+          Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
+        </template>
         Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
       </CardDescription>
-      <CardAction class="max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+      <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
         <div
+          v-for="t in TOGGLES"
+          :key="t.label"
           class="inline-flex rounded-lg border p-0.5 text-sm max-sm:flex max-sm:w-full"
           role="radiogroup"
-          aria-label="Gliederung"
+          :aria-label="t.label"
         >
           <button
-            v-for="l in LEVELS"
-            :key="l.key"
+            v-for="o in t.options"
+            :key="o.key"
             type="button"
             role="radio"
-            :aria-checked="level === l.key"
+            :aria-checked="t.model.value === o.key"
             class="rounded-md px-2.5 py-1 transition-colors max-sm:flex-1"
-            :class="level === l.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-            @click="level = l.key"
+            :class="t.model.value === o.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="t.model.value = o.key"
           >
-            {{ l.label }}
+            {{ o.label }}
           </button>
         </div>
       </CardAction>
@@ -221,46 +289,109 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
             :viewBox="`0 0 ${proj.width} ${proj.height}`"
             class="block h-auto w-full"
             role="img"
-            :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach Anzahl besuchter Brauhäuser`"
+            :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach ${mode === 'anzahl' ? 'Anzahl besuchter Brauhäuser' : 'Ø Bewertung der Brauhäuser'}`"
           >
-            <!-- areas -->
-            <g fill-rule="evenodd">
-              <path
-                v-for="a in areas"
-                :key="a.district.nummer"
-                :d="a.path"
-                class="cursor-pointer stroke-foreground/30 transition-[fill-opacity]"
-                :class="a.restaurants.length ? '' : 'fill-muted'"
-                :style="a.restaurants.length ? { fill: colorOf(a.restaurants.length) } : undefined"
-                :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.6 : 1"
-                stroke-width="1"
+            <defs>
+              <!-- everything district-related ends at the riverbank: the river band is cut out -->
+              <mask
+                :id="maskId"
+                maskUnits="userSpaceOnUse"
+                x="0"
+                y="0"
+                :width="proj.width"
+                :height="proj.height"
+              >
+                <rect
+                  :width="proj.width"
+                  :height="proj.height"
+                  fill="white"
+                />
+                <path
+                  :d="rheinPath"
+                  fill="none"
+                  stroke="black"
+                  :stroke-width="rheinWidth"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
+              </mask>
+              <clipPath
+                v-if="activeArea"
+                :id="clipId"
+              >
+                <path
+                  :d="activeArea.path"
+                  clip-rule="evenodd"
+                />
+              </clipPath>
+            </defs>
+
+            <g :mask="`url(#${maskId})`">
+              <!-- areas -->
+              <g fill-rule="evenodd">
+                <path
+                  v-for="a in areas"
+                  :key="a.district.nummer"
+                  :d="a.path"
+                  class="cursor-pointer stroke-foreground/30 transition-[fill-opacity]"
+                  :class="fillOf(a) ? '' : 'fill-muted'"
+                  :style="fillOf(a) ? { fill: fillOf(a) } : undefined"
+                  :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.6 : 1"
+                  stroke-width="1"
+                  stroke-linejoin="round"
+                  @pointermove="onMove($event, a)"
+                  @pointerup="onTap($event, a)"
+                />
+              </g>
+
+              <!-- Stadtbezirk borders on top, always visible -->
+              <g
+                class="pointer-events-none fill-none stroke-foreground/70"
+                stroke-width="2"
                 stroke-linejoin="round"
-                @pointermove="onMove($event, a)"
-                @pointerup="onTap($event, a)"
+              >
+                <path
+                  v-for="(d, i) in bezirkPaths"
+                  :key="i"
+                  :d="d"
+                />
+              </g>
+
+              <!-- hovered area outline -->
+              <path
+                v-if="activeArea"
+                :d="activeArea.path"
+                class="pointer-events-none fill-none stroke-foreground"
+                stroke-width="3"
+                stroke-linejoin="round"
               />
             </g>
 
-            <!-- Stadtbezirk borders on top, always visible -->
+            <!-- Rhine: a band 2 px wider than the water = 1 px border on each bank (like the Stadtteil borders) -->
             <g
-              class="pointer-events-none fill-none stroke-foreground/70"
-              stroke-width="2"
+              class="pointer-events-none fill-none"
               stroke-linejoin="round"
+              stroke-linecap="round"
             >
               <path
-                v-for="(d, i) in bezirkPaths"
-                :key="i"
-                :d="d"
+                :d="rheinPath"
+                class="stroke-foreground/30"
+                :stroke-width="rheinWidth + 2"
+              />
+              <!-- hovered district: its outline continues along the bank (3 px, only inside the district) -->
+              <path
+                v-if="activeArea"
+                :d="rheinPath"
+                class="stroke-foreground"
+                :stroke-width="rheinWidth + 6"
+                :clip-path="`url(#${clipId})`"
+              />
+              <path
+                :d="rheinPath"
+                class="stroke-[oklch(0.42_0.12_255)] dark:stroke-[oklch(0.5_0.13_255)]"
+                :stroke-width="rheinWidth"
               />
             </g>
-
-            <!-- hovered area outline -->
-            <path
-              v-if="activeArea"
-              :d="activeArea.path"
-              class="pointer-events-none fill-none stroke-foreground"
-              stroke-width="3"
-              stroke-linejoin="round"
-            />
 
             <!-- restaurants -->
             <g class="pointer-events-none">
@@ -310,7 +441,9 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
               Bezirk {{ activeArea.district.stadtbezirk }}
             </div>
             <div class="mt-2 text-sm tabular-nums">
-              {{ plural(activeArea.restaurants.length) }}
+              {{ plural(activeArea.restaurants.length) }}<template v-if="mode === 'bewertung'">
+                · Ø {{ formatScore(activeArea.score) }}
+              </template>
             </div>
             <ul
               v-if="activeArea.restaurants.length"
@@ -320,9 +453,13 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
                 v-for="r in activeArea.restaurants"
                 :key="r.slug"
               >
-                {{ r.name }}<template v-if="r.besuche > 1">
-                  ({{ r.besuche }}×)
-                </template>
+                <span class="flex justify-between gap-2">
+                  <span>{{ r.name }}<template v-if="r.besuche > 1"> ({{ r.besuche }}×)</template></span>
+                  <span
+                    v-if="mode === 'bewertung'"
+                    class="tabular-nums"
+                  >{{ formatScore(r.gesamt) }}</span>
+                </span>
               </li>
             </ul>
           </div>
@@ -331,17 +468,30 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
         <!-- legend -->
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
           <span class="inline-flex items-center gap-1.5">
-            <span class="size-3 rounded-sm border bg-muted" /> 0
+            <span class="size-3 rounded-sm border bg-muted" /> {{ mode === 'anzahl' ? '0' : 'keine Bewertung' }}
           </span>
+          <template v-if="mode === 'anzahl'">
+            <span
+              v-for="b in bins"
+              :key="b.label"
+              class="inline-flex items-center gap-1.5 tabular-nums"
+            >
+              <span
+                class="size-3 rounded-sm"
+                :style="{ background: b.color }"
+              /> {{ b.label }}
+            </span>
+          </template>
           <span
-            v-for="b in bins"
-            :key="b.label"
+            v-else-if="scoreRange"
             class="inline-flex items-center gap-1.5 tabular-nums"
           >
+            Ø {{ formatScore(scoreRange.min) }}
             <span
-              class="size-3 rounded-sm"
-              :style="{ background: b.color }"
-            /> {{ b.label }}
+              class="h-3 w-20 rounded-sm"
+              :style="{ background: gradient }"
+            />
+            {{ formatScore(scoreRange.max) }}
           </span>
           <span class="inline-flex items-center gap-1.5">
             <span class="size-2.5 rounded-full bg-foreground" /> Brauhaus
@@ -349,13 +499,16 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
           <span class="inline-flex items-center gap-1.5">
             <span class="h-0.5 w-4 bg-foreground/70" /> Bezirksgrenze
           </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-1.5 w-4 rounded-full bg-[oklch(0.42_0.12_255)] dark:bg-[oklch(0.5_0.13_255)]" /> Rhein
+          </span>
         </div>
       </div>
 
       <!-- ranking -->
       <div class="flex flex-col gap-3">
         <h3 class="text-sm font-medium">
-          {{ level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke' }} mit Besuchen
+          {{ level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke' }} {{ mode === 'anzahl' ? 'mit Besuchen' : 'nach Ø Bewertung' }}
         </h3>
         <p
           v-if="!ranking.length"
@@ -377,10 +530,10 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
           >
             <span
               class="size-3 shrink-0 rounded-sm"
-              :style="{ background: colorOf(a.restaurants.length) }"
+              :style="{ background: fillOf(a) }"
             />
             <span class="min-w-0 flex-1 truncate">{{ a.district.name }}</span>
-            <span class="tabular-nums">{{ a.restaurants.length }}</span>
+            <span class="tabular-nums">{{ mode === 'anzahl' ? a.restaurants.length : formatScore(a.score) }}</span>
           </li>
         </ol>
         <p class="text-xs text-muted-foreground">
@@ -389,6 +542,15 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
           </template><template v-if="ohneKoordinaten.length">
             · {{ ohneKoordinaten.length }} ohne Koordinaten
           </template>
+        </p>
+        <p class="text-xs text-muted-foreground">
+          Rhein: ©
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener"
+            class="underline underline-offset-2 hover:text-foreground"
+          >OpenStreetMap-Mitwirkende</a>
         </p>
       </div>
     </CardContent>

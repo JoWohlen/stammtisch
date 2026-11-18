@@ -72,4 +72,6 @@ export interface KoelnGeo {
   source: string
   stadtteile: District[]
   stadtbezirke: District[]
+  /** Rhine centre line ([lng, lat], south → north), clipped to the city area; © OpenStreetMap contributors (ODbL) */
+  rhein: Ring
 }

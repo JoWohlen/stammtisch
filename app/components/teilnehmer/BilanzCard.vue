@@ -2,6 +2,7 @@
 import { Beer, CalendarDays, ChevronRight, Crown, GlassWater, Handshake, MapPin, Utensils, Wallet } from '@lucide/vue'
 import type { Teilnehmer } from '@/composables/useStammtisch'
 import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
+import { scoreColor } from '@/lib/score-color'
 
 const props = defineProps<{ teilnehmer: Teilnehmer }>()
 
@@ -28,8 +29,6 @@ const categories = p
     ]
   : []
 
-/** green-600 pill, coloured within the planned visits like the tile grids */
-const GREEN = 'oklch(62.7% 0.194 149.214)'
 const planned = computed(() => {
   if (!p) return []
   const xs = p.visits.map(v => v.averages.gesamt!)
@@ -37,7 +36,7 @@ const planned = computed(() => {
   const max = Math.max(...xs)
   return p.visits.map((v) => {
     const f = max > min ? (v.averages.gesamt! - min) / (max - min) : 1
-    return { v, light: f > 0.6, bg: `color-mix(in oklch, ${GREEN} ${Math.round(f * 100)}%, var(--muted))` }
+    return { v, light: f > 0.6, bg: scoreColor(f) }
   })
 })
 </script>

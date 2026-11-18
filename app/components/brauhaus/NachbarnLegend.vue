@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatNumber, formatScore } from '@/lib/format'
+import { scoreColor } from '@/lib/score-color'
 
 /** Brauhäuser within 1 km, styled like the member legend. */
 const props = defineProps<{ slug: string }>()
@@ -9,8 +10,6 @@ const { getBrauhaus, getNachbarn, brauhausRanking } = useStammtisch()
 
 const hasCoords = !!getBrauhaus(props.slug)?.ort.coords
 
-/** same scale as the overview tiles: green-600 mixed into muted, worst → best Ø Gesamt of all Brauhäuser */
-const GREEN = 'oklch(62.7% 0.194 149.214)'
 const gesamt = new Map(brauhausRanking.map(b => [b.slug, b.gesamt]))
 const min = Math.min(...gesamt.values())
 const max = Math.max(...gesamt.values())
@@ -22,7 +21,7 @@ const nachbarn = computed(() => getNachbarn(props.slug, RADIUS).map((n) => {
     ...n,
     score,
     light: f > 0.6,
-    bg: `color-mix(in oklch, ${GREEN} ${Math.round(f * 100)}%, var(--muted))`,
+    bg: score == null ? 'var(--muted)' : scoreColor(f),
   }
 }))
 
