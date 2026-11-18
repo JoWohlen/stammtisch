@@ -33,6 +33,7 @@ const { overviewStats: s } = useStammtisch()
       <AnalysePreisLeistungCard class="lg:col-span-2" />
       <AnalysePcaCard class="lg:col-span-2" />
       <AnalyseBierCard class="lg:col-span-2" />
+      <AnalysePlanerBiasCard class="lg:col-span-2" />
       <AnalyseKarteCard class="lg:col-span-2" />
     </section>
   </main>
