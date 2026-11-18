@@ -28,3 +28,25 @@ export const formatVote = (n: number): string => upTo2.format(n)
 
 /** up to 1 decimal, no trailing zeros (4 · 3,5) */
 export const formatUpTo1 = (n: number): string => upTo1.format(n)
+
+export interface FitOptions {
+  /** decimals of the full form */
+  digits?: number
+  /** text before the number, e.g. '≈ ' */
+  prefix?: string
+  /** text after the number, e.g. ' L' or a no-break space + '€' */
+  suffix?: string
+}
+
+/** cuts off (never rounds up) so a shortened value never claims more than there is: 45,7 → 45 */
+const trunc = (n: number, digits: number) => Math.trunc(n * 10 ** digits) / 10 ** digits
+
+/**
+ * Ever shorter spellings of one number, for a tile that picks the first one that fits:
+ * full (45,7 · 1.553) → whole number (45) → thousands with one decimal (1,5k) → whole thousands (1k).
+ */
+export function fitForms(n: number, { digits = 0, prefix = '', suffix = '' }: FitOptions = {}): string[] {
+  const forms = [formatNumber(n, digits), formatNumber(trunc(n, 0))]
+  if (Math.abs(n) >= 1000) forms.push(`${formatUpTo1(trunc(n / 1000, 1))}k`, `${formatNumber(trunc(n / 1000, 0))}k`)
+  return [...new Set(forms)].map(f => `${prefix}${f}${suffix}`)
+}

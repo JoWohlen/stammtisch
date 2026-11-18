@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { Beer, CalendarDays, ChartLine, ChevronRight, Crown, GlassWater, Handshake, MapPin, ScrollText, Search, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
-import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
+import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const { overviewStats: s } = useStammtisch()
+const EURO = '\u00A0€'
 const perVisit = (n: number) => n / Math.max(s.besuche, 1)
 
 const tiles = [
   { label: 'Besuche', icon: CalendarDays, value: formatNumber(s.besuche), sub: s.ersterBesuch ? `seit ${formatDate(s.ersterBesuch)}` : undefined },
   { label: 'Teilnehmer', icon: Users, value: formatNumber(s.teilnehmer), sub: 'Personen mit Bewertung' },
-  { label: 'Biere gesamt', icon: Beer, value: formatNumber(s.biere), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
-  { label: 'Liter Bier', icon: GlassWater, value: `${formatNumber(s.liter, 1)} L`, sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
-  { label: 'Gesamtkosten', icon: Wallet, value: formatEuro(s.kosten), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
+  { label: 'Biere gesamt', icon: Beer, value: fitForms(s.biere), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
+  { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
+  { label: 'Gesamtkosten', icon: Wallet, value: fitForms(s.kosten, { suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
 ]
 
 const b = s.bestesBrauhaus

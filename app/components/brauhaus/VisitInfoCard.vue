@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Beer, CalendarDays, CircleDollarSign, Compass, GlassWater, Hash, Martini, Receipt, Scale, Star, Tag, UserPlus, Users, Wallet } from '@lucide/vue'
 import type { Visit } from '#shared/types'
-import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
+import { type FitOptions, fitForms, formatDate, formatScore } from '@/lib/format'
 
 const props = defineProps<{ visit: Visit }>()
 
@@ -14,7 +14,8 @@ const TONE = {
   neutral: 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200',
 }
 
-const dash = (n: number | null, f: (x: number) => string = x => formatNumber(x)) => (n == null ? '–' : f(n))
+const EURO: FitOptions = { digits: 2, suffix: '\u00A0€' }
+const dash = (n: number | null, opts?: FitOptions): string | string[] => (n == null ? '–' : fitForms(n, opts))
 
 const heads = computed(() => (props.visit.mitglieder ?? 0) + (props.visit.gaeste ?? 0))
 const perHead = (n: number | null) => (n != null && heads.value > 0 ? n / heads.value : null)
@@ -26,14 +27,14 @@ const tiles = computed(() => {
   return [
     { label: 'Mitglieder', icon: Users, value: dash(v.mitglieder) },
     { label: 'Gäste', icon: UserPlus, value: dash(v.gaeste) },
-    { label: 'Rechnung', icon: Wallet, value: dash(v.rechnung, x => formatEuro(x, true)) },
-    { label: '€ pro Kopf', icon: Receipt, value: dash(perHead(v.rechnung), x => formatEuro(x, true)) },
-    { label: 'Preis/Leistung', icon: Scale, value: dash(v.averages.preisLeistung, x => formatNumber(x, 2)), sub: '€ pro Kopf / Gesamt' },
+    { label: 'Rechnung', icon: Wallet, value: dash(v.rechnung, EURO) },
+    { label: '€ pro Kopf', icon: Receipt, value: dash(perHead(v.rechnung), EURO) },
+    { label: 'Preis/Leistung', icon: Scale, value: dash(v.averages.preisLeistung, { digits: 2 }), sub: '€ pro Kopf / Gesamt' },
     { label: 'Biere', icon: Beer, value: dash(v.biere) },
-    { label: 'Liter Bier', icon: GlassWater, value: dash(v.liter, x => `${formatNumber(x, 1)} L`) },
-    { label: 'Bierpreis', icon: CircleDollarSign, value: dash(v.bierpreis, x => formatEuro(x, true)) },
+    { label: 'Liter Bier', icon: GlassWater, value: dash(v.liter, { digits: 1, suffix: ' L' }) },
+    { label: 'Bierpreis', icon: CircleDollarSign, value: dash(v.bierpreis, EURO) },
     { label: 'Kurze', icon: Martini, value: dash(v.kurze) },
-    { label: 'Biere pro Kopf', icon: Beer, value: dash(perHead(v.biere), x => formatNumber(x, 1)) },
+    { label: 'Biere pro Kopf', icon: Beer, value: dash(perHead(v.biere), { digits: 1 }) },
   ]
 })
 </script>
