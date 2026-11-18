@@ -27,7 +27,8 @@ const fit = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1 rounded-lg border bg-muted/40 p-4">
+  <!-- min-w-0: let the grid column shrink below the number, so the value can switch to a shorter form -->
+  <div class="flex min-w-0 flex-col gap-1 rounded-lg border bg-muted/40 p-4">
     <div class="flex items-center gap-2 text-sm text-muted-foreground">
       <component
         :is="icon"
