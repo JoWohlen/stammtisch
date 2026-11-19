@@ -30,6 +30,7 @@ const { overviewStats: s } = useStammtisch()
     <!-- 1 column for wide charts; smaller cards later go into lg:grid-cols-2 -->
     <section class="grid gap-6 lg:grid-cols-2">
       <AnalyseScoreTimelineCard class="lg:col-span-2" />
+      <AnalyseAnwesenheitCard class="lg:col-span-2" />
       <AnalysePreisLeistungCard class="lg:col-span-2" />
       <AnalysePcaCard class="lg:col-span-2" />
       <AnalyseBierCard class="lg:col-span-2" />
