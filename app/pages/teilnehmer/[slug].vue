@@ -7,7 +7,7 @@ const { getTeilnehmer } = useStammtisch()
 
 const teilnehmer = getTeilnehmer(String(route.params.slug))
 if (!teilnehmer) {
-  throw createError({ statusCode: 404, statusMessage: 'Teilnehmer nicht gefunden', fatal: true })
+  throw createError({ statusCode: 404, statusMessage: 'Mitglied nicht gefunden', fatal: true })
 }
 
 useHead({ title: `${teilnehmer.name} · Stammtisch-Tracker` })

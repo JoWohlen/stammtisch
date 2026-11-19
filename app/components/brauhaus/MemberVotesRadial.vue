@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
 import type { ScoreMap } from '#shared/types'
 import { formatScore, formatVote } from '@/lib/format'
 import { memberColor } from '@/lib/members'
 
 const props = defineProps<{
   label: string
+  /** used instead of `label` when that doesn't fit next to the Ø badge */
+  shortLabel?: string
   icon: Component
   scores: ScoreMap
   avg: number | null
 }>()
+
+/** the full label is always measured (invisible copy), so it comes back once there is room again */
+const titleBox = useTemplateRef<HTMLElement>('titleBox')
+const fullLabel = useTemplateRef<HTMLElement>('fullLabel')
+const tooWide = ref(false)
+useResizeObserver(titleBox, () => {
+  if (titleBox.value && fullLabel.value) tooWide.value = fullLabel.value.offsetWidth > titleBox.value.clientWidth
+})
 
 const { memberPath } = useStammtisch()
 const router = useRouter()
@@ -64,13 +75,24 @@ const rings = computed(() => {
 <template>
   <Card class="gap-2">
     <CardHeader>
-      <CardTitle class="flex items-center gap-2">
+      <CardTitle class="flex min-w-0 items-center gap-2">
         <component
           :is="icon"
           class="size-4 text-muted-foreground"
           aria-hidden="true"
         />
-        {{ label }}
+        <span
+          ref="titleBox"
+          class="relative min-w-0 flex-1 truncate"
+          :title="tooWide && shortLabel ? label : undefined"
+        >
+          <span
+            ref="fullLabel"
+            class="invisible absolute whitespace-nowrap"
+            aria-hidden="true"
+          >{{ label }}</span>
+          {{ tooWide && shortLabel ? shortLabel : label }}
+        </span>
       </CardTitle>
       <CardDescription>Note je Mitglied (0–5)</CardDescription>
       <CardAction>

@@ -95,6 +95,31 @@ function bestPlaner(visits: Visit[]): BestPlaner | null {
   return ranked[0] ?? null
 }
 
+/** Ø Gesamt of the last `months` calendar months (ending with the month of the newest visit) vs the same span before */
+export interface ScoreTrend {
+  months: number
+  aktuell: number
+  vorher: number | null
+  /** 'flat' only when both windows are exactly equal */
+  richtung: 'up' | 'down' | 'flat'
+}
+
+function scoreTrend(visits: Visit[], months = 6): ScoreTrend | null {
+  const last = visits.at(-1)
+  if (!last) return null
+  const idx = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1
+  const end = idx(last.date)
+  const avg = (from: number, to: number) => {
+    const vs = scored(visits).filter(v => idx(v.date) > from && idx(v.date) <= to)
+    return vs.length ? mean(vs.map(v => v.averages.gesamt!)) : null
+  }
+  const aktuell = avg(end - months, end)
+  if (aktuell == null) return null
+  const vorher = avg(end - 2 * months, end - months)
+  const d = vorher == null ? 0 : aktuell - vorher
+  return { months, aktuell, vorher, richtung: d > 0 ? 'up' : d < 0 ? 'down' : 'flat' }
+}
+
 const visits = data.visits
 const brauhausRanking = rankBrauhaeuser(visits)
 
@@ -108,6 +133,7 @@ const overviewStats = {
   letzterBesuch: visits.at(-1)?.date ?? null,
   bestesBrauhaus: bestVisit(visits),
   besterPlaner: bestPlaner(visits),
+  trend: scoreTrend(visits),
 }
 
 export type OverviewStats = typeof overviewStats

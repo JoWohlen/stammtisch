@@ -2,16 +2,31 @@
 import { Beer, CalendarDays, ChartLine, ChevronRight, Crown, GlassWater, Handshake, MapPin, ScrollText, Search, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
-const { overviewStats: s } = useStammtisch()
+const { overviewStats: s, participants, getTeilnehmer } = useStammtisch()
+
+/** first visit of the member who joined last */
+const letzterBeitritt = participants
+  .map(p => getTeilnehmer(p.slug)?.stats.ersterBesuch)
+  .filter((d): d is string => d != null)
+  .sort()
+  .at(-1)
 const EURO = '\u00A0€'
 const perVisit = (n: number) => n / Math.max(s.besuche, 1)
 
 const tiles = [
   { label: 'Besuche', icon: CalendarDays, value: formatNumber(s.besuche), sub: s.ersterBesuch ? `seit ${formatDate(s.ersterBesuch)}` : undefined },
-  { label: 'Teilnehmer', icon: Users, value: formatNumber(s.teilnehmer), sub: 'Personen mit Bewertung' },
+  { label: 'Mitglieder', icon: Users, value: formatNumber(s.teilnehmer), sub: letzterBeitritt ? `seit ${formatDate(letzterBeitritt)}` : undefined },
   { label: 'Biere gesamt', icon: Beer, value: fitForms(s.biere), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
   { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
   { label: 'Gesamtkosten', icon: Wallet, value: fitForms(s.kosten, { suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
+  ...(s.trend
+    ? [{
+        label: 'Ø Bewertung',
+        value: formatScore(s.trend.aktuell),
+        sub: `letzte ${s.trend.months} Monate`,
+        trend: s.trend.vorher != null ? s.trend.richtung : undefined,
+      }]
+    : []),
 ]
 
 const b = s.bestesBrauhaus
@@ -76,12 +91,11 @@ const categories = b
     </CardHeader>
 
     <CardContent class="flex flex-col gap-6">
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile
-          v-for="(t, i) in tiles"
+          v-for="t in tiles"
           :key="t.label"
           v-bind="t"
-          :class="i === tiles.length - 1 ? 'col-span-2 sm:col-span-1' : ''"
         />
       </div>
 

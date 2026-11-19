@@ -31,7 +31,14 @@ const rows = participants.map((p) => {
   return { ...p, cells, besuche: visits.filter(v => attended(p.name, v)).length }
 }).filter(r => r.besuche > 0)
 
-const cols = { gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))` }
+/** blocks never get narrower than 0.75rem → the grid scrolls instead of squeezing */
+const cols = { gridTemplateColumns: `repeat(${months.length}, minmax(0.75rem, 1fr))` }
+
+/** start scrolled to the newest months */
+const scroller = useTemplateRef<HTMLElement>('scroller')
+onMounted(() => {
+  if (scroller.value) scroller.value.scrollLeft = scroller.value.scrollWidth
+})
 </script>
 
 <template>
@@ -45,52 +52,66 @@ const cols = { gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))` }
       </CardDescription>
     </CardHeader>
 
-    <CardContent class="flex flex-col gap-px sm:gap-0.5">
-      <div
-        v-for="r in rows"
-        :key="r.slug"
-        class="grid grid-cols-[4.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[7rem_1fr_3rem]"
-      >
-        <NuxtLink
-          :to="`/teilnehmer/${r.slug}`"
-          class="truncate text-xs leading-none font-medium hover:underline"
-        >
-          {{ r.name }}
-        </NuxtLink>
-        <div
-          class="grid gap-px sm:gap-0.5"
-          :style="cols"
-          role="img"
-          :aria-label="`${r.name}: bei ${r.besuche} von ${visits.length} Stammtischen`"
-        >
-          <span
-            v-for="(c, i) in r.cells"
-            :key="i"
-            class="h-3 rounded-[3px] sm:h-3.5 sm:rounded-[4px]"
-            :class="c.here ? '' : 'bg-muted-foreground/25'"
-            :style="c.here ? { background: memberColor(r.name) } : undefined"
-            :title="c.label"
-          />
+    <CardContent class="flex flex-col">
+      <!-- names and counts stay put, only the month grid scrolls on narrow screens -->
+      <div class="flex items-start gap-2">
+        <div class="flex w-[4.5rem] shrink-0 flex-col gap-px sm:w-[7rem] sm:gap-0.5">
+          <NuxtLink
+            v-for="r in rows"
+            :key="r.slug"
+            :to="`/teilnehmer/${r.slug}`"
+            class="flex h-3 items-center truncate text-xs leading-none font-medium hover:underline sm:h-3.5"
+          >
+            {{ r.name }}
+          </NuxtLink>
         </div>
-        <span class="text-right text-xs leading-none text-muted-foreground tabular-nums">{{ r.besuche }}/{{ visits.length }}</span>
+
+        <div
+          ref="scroller"
+          class="flex min-w-0 flex-1 flex-col gap-px overflow-x-auto pb-1 sm:gap-0.5"
+        >
+          <div
+            v-for="r in rows"
+            :key="r.slug"
+            class="grid gap-px sm:gap-0.5"
+            :style="cols"
+            role="img"
+            :aria-label="`${r.name}: bei ${r.besuche} von ${visits.length} Stammtischen`"
+          >
+            <span
+              v-for="(c, i) in r.cells"
+              :key="i"
+              class="h-3 rounded-[3px] sm:h-3.5 sm:rounded-[4px]"
+              :class="c.here ? '' : 'bg-muted-foreground/25'"
+              :style="c.here ? { background: memberColor(r.name) } : undefined"
+              :title="c.label"
+            />
+          </div>
+
+          <!-- year axis: label at each January (and at the start) -->
+          <div
+            class="mt-1 grid gap-px text-[11px] text-muted-foreground tabular-nums sm:gap-0.5"
+            :style="cols"
+          >
+            <span
+              v-for="(m, i) in months"
+              :key="i"
+              class="overflow-visible whitespace-nowrap"
+              :class="m.month === 0 ? 'border-l border-muted-foreground/50 pl-0.5' : ''"
+            >{{ m.month === 0 || i === 0 ? m.year : '' }}</span>
+          </div>
+        </div>
+
+        <div class="flex w-10 shrink-0 flex-col gap-px sm:w-12 sm:gap-0.5">
+          <span
+            v-for="r in rows"
+            :key="r.slug"
+            class="flex h-3 items-center justify-end text-xs leading-none text-muted-foreground tabular-nums sm:h-3.5"
+          >{{ r.besuche }}/{{ visits.length }}</span>
+        </div>
       </div>
 
-      <!-- year axis: label at each January (and at the start) -->
-      <div class="mt-1 grid grid-cols-[4.5rem_1fr_2.5rem] gap-2 sm:grid-cols-[7rem_1fr_3rem]">
-        <div
-          class="col-start-2 grid gap-px text-[11px] text-muted-foreground tabular-nums sm:gap-0.5"
-          :style="cols"
-        >
-          <span
-            v-for="(m, i) in months"
-            :key="i"
-            class="overflow-visible whitespace-nowrap"
-            :class="m.month === 0 ? 'border-l border-muted-foreground/50 pl-0.5' : ''"
-          >{{ m.month === 0 || i === 0 ? m.year : '' }}</span>
-        </div>
-      </div>
-
-      <p class="mt-2 text-xs text-muted-foreground">
+      <p class="mt-1 text-xs text-muted-foreground">
         Dabei sein heißt: mitbewertet. In Monaten mit zwei Stammtischen reicht einer.
       </p>
     </CardContent>

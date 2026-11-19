@@ -99,7 +99,7 @@ const hasAny = computed(() => !!(props.ort.adresse || props.ort.website || props
             :href="googleMaps"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <ExternalLink
               class="size-4"

@@ -213,7 +213,7 @@ function main() {
 
   const data: StammtischData = { generatedAt: new Date().toISOString(), visits, participants }
   writeFileSync(OUT, `${JSON.stringify(data, null, 2)}\n`)
-  console.log(`✔ ${visits.length} Besuche, ${participants.length} Teilnehmer → data/stammtisch.json`)
+  console.log(`✔ ${visits.length} Besuche, ${participants.length} Mitglieder → data/stammtisch.json`)
 }
 
 main()

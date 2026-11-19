@@ -24,10 +24,10 @@ onMounted(() => {
 const visit = computed(() => brauhaus.visits[Number(selected.value)]!)
 const compare = computed(() => brauhaus.visits[Number(selected.value) + 1] ?? null)
 
-const CATS: { key: Category, label: string, icon: typeof MapPin }[] = [
+const CATS: { key: Category, label: string, shortLabel?: string, icon: typeof MapPin }[] = [
   { key: 'location', label: 'Location', icon: MapPin },
   { key: 'service', label: 'Service', icon: Handshake },
-  { key: 'essen', label: 'Essen & Trinken', icon: Utensils },
+  { key: 'essen', label: 'Essen & Trinken', shortLabel: 'Essen', icon: Utensils },
 ]
 
 /** members who rated the selected visit, in participant order */
@@ -86,6 +86,7 @@ const raters = computed(() => {
         v-for="c in CATS"
         :key="c.key"
         :label="c.label"
+        :short-label="c.shortLabel"
         :icon="c.icon"
         :scores="visit.ratings[c.key]"
         :avg="visit.averages[c.key]"
