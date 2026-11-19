@@ -33,12 +33,6 @@ const rows = participants.map((p) => {
 
 /** blocks never get narrower than 0.75rem → the grid scrolls instead of squeezing */
 const cols = { gridTemplateColumns: `repeat(${months.length}, minmax(0.75rem, 1fr))` }
-
-/** start scrolled to the newest months */
-const scroller = useTemplateRef<HTMLElement>('scroller')
-onMounted(() => {
-  if (scroller.value) scroller.value.scrollLeft = scroller.value.scrollWidth
-})
 </script>
 
 <template>
@@ -67,7 +61,6 @@ onMounted(() => {
         </div>
 
         <div
-          ref="scroller"
           class="flex min-w-0 flex-1 flex-col gap-px overflow-x-auto pb-1 sm:gap-0.5"
         >
           <div
