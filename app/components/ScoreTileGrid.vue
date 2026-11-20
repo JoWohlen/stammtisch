@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { ChevronDown, Crown } from '@lucide/vue'
+import { ChevronDown, Crown, Repeat2 } from '@lucide/vue'
 import type { Metric, ScoreTile } from '@/lib/score-tiles'
 import { formatDate, formatScore } from '@/lib/format'
 import { scoreColor, scoreGradient } from '@/lib/score-color'
 
 type Sort = Metric | 'datum'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   title: string
   tiles: ScoreTile[]
   /** description start, e.g. "40 Brauhäuser" */
   count: string
   /** description when collapsed */
   collapsedText?: string
-}>()
+  /** whether the card can be folded (default true) */
+  collapsible?: boolean
+}>(), { collapsible: true })
 
 const SORTS: { key: Sort, label: string }[] = [
   { key: 'datum', label: 'Datum' },
@@ -48,7 +50,8 @@ const items = computed(() => {
       ...t,
       rank: i + 1,
       value,
-      light: f > 0.6,
+      /** scored tiles always get black text */
+      scored: value != null,
       bg: value == null ? 'var(--muted)' : scoreColor(f),
     }
   })
@@ -61,7 +64,15 @@ const items = computed(() => {
     as-child
   >
     <Card>
-      <CardHeader>
+      <CardHeader v-if="!collapsible">
+        <CardTitle class="text-2xl">
+          {{ title }}
+        </CardTitle>
+        <CardDescription>
+          {{ count }} · Farbe = gewählte Sortierung
+        </CardDescription>
+      </CardHeader>
+      <CardHeader v-else>
         <CollapsibleTrigger as-child>
           <button
             type="button"
@@ -74,7 +85,7 @@ const items = computed(() => {
               <CardDescription>
                 {{ count }} ·
                 <template v-if="open || !collapsedText">
-                  Farbe &amp; Zahl = gewählte Sortierung
+                  Farbe = gewählte Sortierung
                 </template>
                 <template v-else>
                   {{ collapsedText }}
@@ -126,42 +137,64 @@ const items = computed(() => {
             </div>
           </div>
 
-          <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <li
               v-for="t in items"
               :key="t.key"
             >
               <NuxtLink
                 :to="t.to"
-                class="flex h-full flex-col gap-1 rounded-lg border p-3 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                :class="t.light ? 'border-transparent text-white' : 'text-foreground'"
+                class="flex h-full items-center gap-4 rounded-lg border p-3 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                :class="t.scored ? 'border-transparent text-black' : 'text-foreground'"
                 :style="{ backgroundColor: t.bg }"
               >
-                <span class="truncate text-sm font-medium">
-                  <template v-if="sort !== 'datum'">{{ t.rank }}. </template>{{ t.name }}
-                </span>
-                <span class="text-2xl font-semibold tabular-nums">{{ formatScore(t.value) }}</span>
-                <span class="flex items-center justify-between gap-2">
-                  <span
-                    class="truncate text-xs"
-                    :class="t.light ? 'text-white/80' : 'text-muted-foreground'"
-                  >{{ formatDate(t.date) }}</span>
-                  <span
-                    v-if="t.badge && t.badgeTone === 'subtle'"
-                    class="inline-flex shrink-0 items-center rounded-full border border-current/30 bg-transparent px-1.5 py-0.5 text-[10px] font-medium"
-                    :class="t.light ? 'text-white/80' : 'text-muted-foreground'"
-                  >
-                    {{ t.badge }}
+                <span class="flex min-w-0 flex-1 flex-col gap-1">
+                  <span class="flex min-w-0 items-center gap-2 font-medium">
+                    <span class="truncate">
+                      <template v-if="sort !== 'datum'">{{ t.rank }}. </template>{{ t.name }}
+                    </span>
+                    <span
+                      v-if="t.repeat"
+                      class="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal tabular-nums"
+                      :class="t.scored ? 'opacity-80' : 'text-muted-foreground'"
+                      :title="`${t.repeat}. Besuch`"
+                    >
+                      <Repeat2
+                        class="size-3.5"
+                        aria-hidden="true"
+                      />
+                      {{ t.repeat }}
+                      <span class="sr-only">. Besuch</span>
+                    </span>
                   </span>
                   <span
-                    v-else-if="t.badge"
-                    class="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-950 dark:text-violet-200"
+                    class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+                    :class="t.scored ? 'opacity-80' : 'text-muted-foreground'"
                   >
-                    <Crown
-                      class="size-3"
-                      aria-hidden="true"
-                    />
-                    {{ t.badge }}
+                    <span>{{ formatDate(t.date) }}</span>
+                    <template
+                      v-for="d in t.details"
+                      :key="d"
+                    >
+                      <span aria-hidden="true">·</span>
+                      <span>{{ d }}</span>
+                    </template>
+                    <span
+                      v-if="t.badge && t.badgeTone === 'subtle'"
+                      class="inline-flex shrink-0 items-center rounded-full border border-current/30 bg-transparent px-1.5 py-0.5 text-[10px] font-medium"
+                    >
+                      {{ t.badge }}
+                    </span>
+                    <span
+                      v-else-if="t.badge"
+                      class="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-950 dark:text-violet-200"
+                    >
+                      <Crown
+                        class="size-3"
+                        aria-hidden="true"
+                      />
+                      {{ t.badge }}
+                    </span>
                   </span>
                 </span>
               </NuxtLink>

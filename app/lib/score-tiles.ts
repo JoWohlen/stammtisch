@@ -10,6 +10,10 @@ export interface ScoreTile {
   date: string
   /** null = no score in this metric (shown as "–", sorted last) */
   scores: Record<Metric, number | null>
+  /** optional extra facts shown under the name, e.g. "Kölsch", "14 Personen" */
+  details?: string[]
+  /** visit number for repeat visits, shown as a small repeat icon + number after the name */
+  repeat?: number
   /** optional badge, e.g. "geplant" */
   badge?: string
   /** 'accent' (default): violet with crown · 'subtle': takes the tile's own colour */

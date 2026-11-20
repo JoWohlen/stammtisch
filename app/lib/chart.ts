@@ -21,3 +21,14 @@ export function monotonePath(ps: { x: number, y: number }[]): string {
   }
   return d
 }
+
+/** one visit in a DeviationBarChart */
+export interface DeviationBar {
+  id: number
+  name: string
+  /** ISO date, used for the year axis */
+  date: string
+  value: number
+  /** link target */
+  to: string
+}
