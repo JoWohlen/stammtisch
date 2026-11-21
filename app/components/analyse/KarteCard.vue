@@ -215,8 +215,34 @@ function onListEnter(e: PointerEvent, a: Area) {
   fromMap.value = false
 }
 
+/** touch/pen: a tap on a list entry highlights (and pins) its district on the map, a second tap releases it */
+function onListTap(e: PointerEvent, a: Area) {
+  if (e.pointerType === 'mouse') return
+  if (pinned.value && activeNr.value === a.district.nummer) return clear()
+  activeNr.value = a.district.nummer
+  fromMap.value = false
+  pinned.value = true
+}
+
 const tip = ref<HTMLElement | null>(null)
 const tipSize = useElementSize(tip, undefined, { box: 'border-box' })
+
+const tipList = ref<HTMLElement | null>(null)
+
+/** mouse: the tooltip follows the cursor and can't be reached, so the wheel over the map scrolls its list (only while it can scroll) */
+function onWheel(e: WheelEvent) {
+  const el = tipList.value
+  if (!el || !activeArea.value || !fromMap.value) return
+  const canScroll = e.deltaY > 0
+    ? el.scrollTop + el.clientHeight < el.scrollHeight - 1
+    : el.scrollTop > 0
+  if (!canScroll) return
+  e.preventDefault()
+  el.scrollTop += e.deltaY
+}
+useEventListener(box, 'wheel', onWheel, { passive: false })
+// a new district starts at the top of its list
+watch(activeNr, () => tipList.value?.scrollTo({ top: 0 }))
 
 /** next to the pointer, on the side with more room, then clamped so it never leaves the map (= the screen) */
 const tooltipStyle = computed(() => {
@@ -318,7 +344,7 @@ const full = ref(false)
 const rotated = ref(false)
 
 /** the Gliederung/Färbung toggles: in the header normally, next to the map in fullscreen */
-const [DefineToggles, ReuseToggles] = createReusableTemplate<{ wide?: boolean }>()
+const [DefineToggles, ReuseToggles] = createReusableTemplate<{ wide?: boolean, only?: number }>()
 
 /** fullscreen: the map takes the biggest size that fits the space left of the list (no vertical scrolling) */
 const mapArea = ref<HTMLElement | null>(null)
@@ -334,9 +360,9 @@ const fullMapStyle = computed(() => ({
     v-model:rotated="rotated"
   >
     <!-- single root, so the page's class still lands on FullscreenCard -->
-    <DefineToggles v-slot="{ wide }">
+    <DefineToggles v-slot="{ wide, only }">
       <Tabs
-        v-for="t in TOGGLES"
+        v-for="t in only == null ? TOGGLES : [TOGGLES[only]!]"
         :key="t.label"
         v-model="t.model.value"
         :class="wide ? 'w-full' : 'max-sm:w-full'"
@@ -359,32 +385,26 @@ const fullMapStyle = computed(() => ({
 
     <!-- fullscreen: tighter, and min-h-0 + overflow-hidden so the screen itself never scrolls -->
     <Card :class="full && 'min-h-0 gap-2 overflow-hidden py-3 sm:gap-2 sm:py-3'">
-      <CardHeader>
+      <!-- fullscreen: no header; the title sits above the map, so the right column starts at the very top -->
+      <CardHeader v-if="!full">
         <CardTitle class="text-xl">
           Köln-Karte
         </CardTitle>
-        <template v-if="full">
-          <CardAction>
-            <FullscreenButton />
-          </CardAction>
-        </template>
-        <template v-else>
-          <CardDescription class="max-sm:col-start-1">
-            <template v-if="mode === 'anzahl'">
-              In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
-            </template>
-            <template v-else>
-              Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
-            </template>
-            Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
-          </CardDescription>
-          <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
-            <FullscreenButton />
-          </div>
-          <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
-            <ReuseToggles />
-          </CardAction>
-        </template>
+        <CardDescription class="max-sm:col-start-1">
+          <template v-if="mode === 'anzahl'">
+            In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
+          </template>
+          <template v-else>
+            Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
+          </template>
+          Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
+        </CardDescription>
+        <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
+          <FullscreenButton />
+        </div>
+        <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+          <ReuseToggles />
+        </CardAction>
       </CardHeader>
 
       <!-- fullscreen: map on the left over both rows, toggles and list on the right -->
@@ -398,6 +418,12 @@ const fullMapStyle = computed(() => ({
           class="flex flex-col gap-3"
           :class="full && 'row-span-2 min-h-0'"
         >
+          <CardTitle
+            v-if="full"
+            class="text-xl"
+          >
+            Köln-Karte
+          </CardTitle>
           <div
             ref="mapArea"
             :class="full && 'flex min-h-0 flex-1 justify-center'"
@@ -564,7 +590,8 @@ const fullMapStyle = computed(() => ({
               <div
                 v-if="activeArea && fromMap"
                 ref="tip"
-                class="pointer-events-none absolute z-10 w-60 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+                class="absolute z-10 w-60 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+                :class="pinned ? 'pointer-events-auto' : 'pointer-events-none'"
                 :style="tooltipStyle"
               >
                 <div class="font-semibold leading-tight">
@@ -581,9 +608,11 @@ const fullMapStyle = computed(() => ({
                     · Ø {{ formatScore(activeArea.score) }}
                   </template>
                 </div>
+                <!-- long lists scroll: touch-swipe once pinned, mouse wheel while hovering (see onWheel) -->
                 <ul
                   v-if="activeArea.restaurants.length"
-                  class="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground"
+                  ref="tipList"
+                  class="mt-1 flex max-h-40 touch-pan-y flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1 text-xs text-muted-foreground"
                 >
                   <li
                     v-for="r in activeArea.restaurants"
@@ -634,12 +663,15 @@ const fullMapStyle = computed(() => ({
             <span class="inline-flex items-center gap-1.5">
               <span class="size-2.5 rounded-full bg-foreground" /> Brauhaus
             </span>
-            <span class="inline-flex items-center gap-1.5">
-              <span class="h-0.5 w-4 bg-foreground/70" /> Bezirksgrenze
-            </span>
-            <span class="inline-flex items-center gap-1.5">
-              <span class="h-1.5 w-4 rounded-full bg-[oklch(0.42_0.12_255)] dark:bg-[oklch(0.5_0.13_255)]" /> Rhein
-            </span>
+            <!-- fullscreen: self-explanatory, room is short -->
+            <template v-if="!full">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="h-0.5 w-4 bg-foreground/70" /> Bezirksgrenze
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <span class="h-1.5 w-4 rounded-full bg-[oklch(0.42_0.12_255)] dark:bg-[oklch(0.5_0.13_255)]" /> Rhein
+              </span>
+            </template>
           </div>
         </div>
 
@@ -647,7 +679,17 @@ const fullMapStyle = computed(() => ({
           v-if="full"
           class="col-start-2 row-start-1 flex flex-col gap-2"
         >
-          <ReuseToggles wide />
+          <div class="flex items-center gap-2">
+            <ReuseToggles
+              wide
+              :only="0"
+            />
+            <FullscreenButton />
+          </div>
+          <ReuseToggles
+            wide
+            :only="1"
+          />
         </div>
 
         <!-- ranking (fullscreen: scrolls on its own, the screen does not) -->
@@ -672,9 +714,11 @@ const fullMapStyle = computed(() => ({
             <li
               v-for="a in ranking"
               :key="a.district.nummer"
-              class="flex items-center gap-2"
+              class="-mx-1 flex cursor-default items-center gap-2 rounded px-1"
+              :class="activeNr === a.district.nummer && 'bg-muted'"
               @pointerenter="onListEnter($event, a)"
               @pointerleave="onLeave"
+              @pointerup="onListTap($event, a)"
             >
               <span
                 class="size-3 shrink-0 rounded-sm"
