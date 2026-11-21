@@ -63,7 +63,8 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
       </Tabs>
     </DefineTabs>
 
-    <Card>
+    <!-- fullscreen: tighter padding, and min-h-0 so everything fits the screen without scrolling -->
+    <Card :class="full && 'min-h-0 gap-2 py-3 sm:gap-2 sm:py-3'">
       <CardHeader>
         <CardTitle class="text-xl">
           Bewertungen im Zeitverlauf
@@ -81,7 +82,7 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
 
       <CardContent
         class="flex flex-col gap-4"
-        :class="full && 'flex-1'"
+        :class="full && 'min-h-0 flex-1'"
       >
         <div
           v-if="!full"

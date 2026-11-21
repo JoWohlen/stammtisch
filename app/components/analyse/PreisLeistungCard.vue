@@ -35,7 +35,8 @@ const perHead = (v: Visit) => {
 
 <template>
   <FullscreenCard v-model:full="full">
-    <Card>
+    <!-- fullscreen: tighter padding, and min-h-0 so everything fits the screen without scrolling -->
+    <Card :class="full && 'min-h-0 gap-2 py-3 sm:gap-2 sm:py-3'">
       <CardHeader>
         <CardTitle class="text-xl">
           Preis/Leistung im Zeitverlauf
@@ -49,7 +50,7 @@ const perHead = (v: Visit) => {
         </CardAction>
       </CardHeader>
 
-      <CardContent :class="full && 'flex flex-1 flex-col'">
+      <CardContent :class="full && 'flex min-h-0 flex-1 flex-col'">
         <AnalyseDeviationBarChart
           :bars="bars"
           :avg="avg"

@@ -35,7 +35,7 @@ defineSlots<{
 const box = useTemplateRef<HTMLDivElement>('box')
 const { width, height: boxHeight } = useElementSize(box)
 const compact = computed(() => width.value < 640)
-const height = computed(() => (props.full ? Math.max(220, boxHeight.value) : compact.value ? 280 : 400))
+const height = computed(() => (props.full ? Math.max(120, boxHeight.value) : compact.value ? 280 : 400))
 /** left = width of the fixed y-axis column */
 const PAD = { top: 18, right: 8, bottom: 28, left: 44 }
 /** narrowest column per visit before the bars scroll instead of squeezing */
@@ -46,8 +46,12 @@ const { height: scrollerHeight } = useElementSize(scroller)
 const { x: scrollX } = useScroll(scroller)
 /** drawing height: the scroller's content box, so a desktop scrollbar does not cut off the year axis */
 const h = computed(() => scrollerHeight.value || height.value)
+/** fullscreen: this many visits fill the screen, the rest scroll sideways */
+const FULL_WINDOW = 50
+/** narrowest column per visit: fixed normally, 1/50 of the visible plot in fullscreen */
+const minBand = computed(() => (props.full ? (width.value - PAD.left - PAD.right) / FULL_WINDOW : MIN_BAND))
 /** width of the scrolling plot (≥ visible width) */
-const plotW = computed(() => Math.max(width.value - PAD.left, props.bars.length * MIN_BAND + PAD.right))
+const plotW = computed(() => Math.max(width.value - PAD.left, props.bars.length * minBand.value + PAD.right))
 
 /** signed distance from Ø, positive = better */
 const better = (v: number) => (props.higherIsBetter ? v - props.avg : props.avg - v)
@@ -155,6 +159,8 @@ watch([scroller, width], () => {
   startedAtEnd = true
   nextTick(() => el.scrollTo({ left: el.scrollWidth }))
 }, { flush: 'post' })
+/** entering/leaving fullscreen changes the bar width: start at the newest visits again once it is laid out */
+watch(() => props.full, () => (startedAtEnd = false))
 
 const tooltipStyle = computed(() => {
   const it = activeItem.value
@@ -183,7 +189,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
     <div
       ref="box"
       class="relative w-full"
-      :class="full && 'min-h-56 flex-1'"
+      :class="full && 'min-h-30 flex-1'"
       :style="full ? undefined : { height: `${height}px` }"
       @mouseleave="hover(null)"
     >
@@ -345,7 +351,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
       </div>
     </div>
 
-    <!-- details row below the chart (mobile) -->
+    <!-- details row below the chart (mobile, fullscreen) -->
     <div
       v-if="activeItem && mobile"
       class="flex items-center gap-1 rounded-lg border text-sm transition-colors"
