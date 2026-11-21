@@ -23,6 +23,8 @@ onMounted(() => {
 })
 const visit = computed(() => brauhaus.visits[Number(selected.value)]!)
 const compare = computed(() => brauhaus.visits[Number(selected.value) + 1] ?? null)
+/** selector tabs oldest → newest, so the newest date sits on the right */
+const visitTabs = brauhaus.visits.map((v, i) => ({ v, i })).reverse()
 
 const CATS: { key: Category, label: string, shortLabel?: string, icon: typeof MapPin }[] = [
   { key: 'location', label: 'Location', icon: MapPin },
@@ -60,7 +62,7 @@ const raters = computed(() => {
       >
         <TabsList>
           <TabsTrigger
-            v-for="(v, i) in brauhaus.visits"
+            v-for="{ v, i } in visitTabs"
             :key="v.date"
             :value="String(i)"
             class="px-4"

@@ -25,14 +25,14 @@ const attended = (name: string, v: (typeof visits)[number]) => CATEGORIES.some(c
 const rows = participants.map((p) => {
   const cells = months.map((m) => {
     const here = m.visits.filter(v => attended(p.name, v))
-    return { here: here.length, total: m.visits.length, before: false, joined: false, label: m.visits.length
+    return { here: here.length, total: m.visits.length, before: false, joined: false, beforeLabel: '', label: m.visits.length
       ? `${MONATE[m.month]} ${m.year}: ${m.visits.map(v => `${formatDate(v.date)} ${v.brauhaus} ${attended(p.name, v) ? '✓' : '✗'}`).join(' · ')}`
       : `${MONATE[m.month]} ${m.year}: kein Stammtisch` }
   })
-  // before someone's first Stammtisch they were not a member yet: no block at all
+  // before someone's first Stammtisch they were not a member yet: no block at all ("Seit Beitritt"), grey ("Alle")
   const joined = cells.findIndex(c => c.here)
   cells.forEach((c, i) => {
-    if (i < joined) Object.assign(c, { before: true, label: `${c.label.split(':')[0]}: noch kein Mitglied` })
+    if (i < joined) Object.assign(c, { before: true, beforeLabel: `${c.label.split(':')[0]}: noch kein Mitglied` })
   })
   // mark the month someone joined, unless they were there from the very first Stammtisch
   if (joined > 0) Object.assign(cells[joined]!, { joined: true, label: `${cells[joined]!.label} · neu dabei` })
@@ -66,7 +66,7 @@ const full = ref(false)
           Anwesenheit
         </CardTitle>
         <CardDescription>
-          Ein Kästchen pro Monat seit dem ersten Stammtisch. Farbig = dabei, grau = nicht dabei oder kein Stammtisch in dem Monat, leer = noch kein Mitglied, Symbol = erster Stammtisch.
+          Ein Kästchen pro Monat seit dem ersten Stammtisch. Farbig = dabei, grau = nicht dabei oder kein Stammtisch in dem Monat{{ basis === 'seit' ? ', leer = noch kein Mitglied' : '' }}, Symbol = erster Stammtisch.
         </CardDescription>
         <CardAction>
           <FullscreenButton />
@@ -74,24 +74,21 @@ const full = ref(false)
       </CardHeader>
 
       <CardContent class="flex flex-col">
-        <div
-          class="mb-3 inline-flex w-fit self-end rounded-lg border p-0.5 text-xs"
-          role="radiogroup"
-          aria-label="Anwesenheit zählen"
+        <Tabs
+          v-model="basis"
+          class="mb-3 self-end"
         >
-          <button
-            v-for="o in BASIS"
-            :key="o.key"
-            type="button"
-            role="radio"
-            :aria-checked="basis === o.key"
-            class="rounded-md px-2 py-1 transition-colors"
-            :class="basis === o.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-            @click="basis = o.key"
-          >
-            {{ o.label }}
-          </button>
-        </div>
+          <TabsList aria-label="Anwesenheit zählen">
+            <TabsTrigger
+              v-for="o in BASIS"
+              :key="o.key"
+              :value="o.key"
+              class="px-3"
+            >
+              {{ o.label }}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <!-- names and counts stay put, only the month grid scrolls on narrow screens -->
         <div class="flex items-start gap-2">
           <div class="flex w-[4.5rem] shrink-0 flex-col gap-px sm:w-[7rem] sm:gap-0.5">
@@ -120,9 +117,9 @@ const full = ref(false)
                 v-for="(c, i) in r.cells"
                 :key="i"
                 class="flex h-3 items-center justify-center rounded-[3px] sm:h-3.5 sm:rounded-[4px]"
-                :class="c.here || c.before ? '' : 'bg-muted-foreground/25'"
+                :class="c.here || (c.before && basis === 'seit') ? '' : 'bg-muted-foreground/25'"
                 :style="c.here ? { background: memberColor(r.name) } : undefined"
-                :title="c.label"
+                :title="c.before && basis === 'seit' ? c.beforeLabel : c.label"
               >
                 <UserPlus
                   v-if="c.joined"

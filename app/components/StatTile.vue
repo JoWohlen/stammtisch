@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { useElementSize } from '@vueuse/core'
+import { useElementSize, useResizeObserver } from '@vueuse/core'
 import { Minus, TrendingDown, TrendingUp } from '@lucide/vue'
 
 const props = defineProps<{
@@ -25,12 +25,21 @@ const box = useTemplateRef<HTMLDivElement>('box')
 const { width } = useElementSize(box)
 const probes = useTemplateRef<HTMLSpanElement[]>('probes')
 
+/**
+ * widths of the invisible copies, kept reactive: offsetWidth alone is not, so a late web font
+ * (common on mobile) widened the digits without re-checking which form fits
+ */
+const probeWidths = ref<number[]>([])
+useResizeObserver(() => probes.value ?? [], () => {
+  probeWidths.value = (probes.value ?? []).map(el => el.offsetWidth)
+})
+
 /** index of the first form that fits; the full form until the tile has been measured (SSR) */
 const fit = computed(() => {
   const w = width.value
-  const els = probes.value
-  if (!w || !els?.length) return 0
-  const i = els.findIndex(el => el.offsetWidth <= w)
+  const ws = probeWidths.value
+  if (!w || !ws.length) return 0
+  const i = ws.findIndex(pw => pw <= w)
   return i === -1 ? forms.value.length - 1 : i
 })
 </script>

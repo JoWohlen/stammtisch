@@ -16,6 +16,6 @@ export interface ScoreTile {
   repeat?: number
   /** optional badge, e.g. "geplant" */
   badge?: string
-  /** 'accent' (default): violet with crown · 'subtle': takes the tile's own colour */
+  /** 'accent' (default): dark pill with crown, next to the name · 'subtle': outlined, in the details line */
   badgeTone?: 'accent' | 'subtle'
 }

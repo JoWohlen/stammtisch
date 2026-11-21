@@ -11,7 +11,7 @@ const visitsOf = groupBy(byDate, v => v.slug)
 
 const visitDetails = (v: Visit): string[] => [
   v.averages.gesamt != null ? `Ø ${formatScore(v.averages.gesamt)}` : null,
-  v.planer ? `Planer: ${v.planer}` : null,
+  `Planer: ${v.planer || '–'}`,
 ].filter((x): x is string => !!x)
 
 /** one tile per visit: repeat visits of a Brauhaus show up once per visit */

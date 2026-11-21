@@ -2,9 +2,13 @@
 import { Beer, CalendarDays, ChevronRight, Crown, GlassWater, Handshake, MapPin, Utensils, Wallet } from '@lucide/vue'
 import type { Teilnehmer } from '@/composables/useStammtisch'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
-import { scoreColor } from '@/lib/score-color'
+import { scoreScale } from '@/lib/score-color'
 
 const props = defineProps<{ teilnehmer: Teilnehmer }>()
+
+const { visits } = useStammtisch()
+/** the planner's evenings are coloured against all rated evenings: amber = the group's Ø */
+const scale = scoreScale(visits.map(v => v.averages.gesamt))
 
 const s = props.teilnehmer.stats
 const p = props.teilnehmer.planer
@@ -32,13 +36,7 @@ const categories = p
 
 const planned = computed(() => {
   if (!p) return []
-  const xs = p.visits.map(v => v.averages.gesamt!)
-  const min = Math.min(...xs)
-  const max = Math.max(...xs)
-  return p.visits.map((v) => {
-    const f = max > min ? (v.averages.gesamt! - min) / (max - min) : 1
-    return { v, light: f > 0.6, bg: scoreColor(f) }
-  })
+  return p.visits.map(v => ({ v, bg: scale?.color(v.averages.gesamt!) ?? 'var(--muted)' }))
 })
 </script>
 
@@ -155,7 +153,7 @@ const planned = computed(() => {
                   <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.essen) }}</span>
                   <span
                     class="rounded-md py-0.5 text-center text-sm font-semibold tabular-nums"
-                    :class="r.light ? 'text-white' : 'text-foreground'"
+                    :class="scale ? 'text-black' : 'text-foreground'"
                     :style="{ backgroundColor: r.bg }"
                   >{{ formatScore(r.v.averages.gesamt) }}</span>
                   <ChevronRight

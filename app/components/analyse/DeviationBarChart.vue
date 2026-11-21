@@ -3,6 +3,7 @@ import { useElementSize, useScroll } from '@vueuse/core'
 import { ThumbsDown, Trophy } from '@lucide/vue'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate } from '@/lib/format'
+import { rampColor } from '@/lib/score-color'
 
 /**
  * One bar per visit (chronological, evenly spaced), drawn from the average:
@@ -25,9 +26,6 @@ defineSlots<{
   /** tooltip body for the active bar */
   tooltip: (p: { bar: DeviationBar }) => unknown
 }>()
-
-const RED = 'oklch(57.7% 0.245 27.325)' // red-600
-const GREEN = 'oklch(62.7% 0.194 149.214)' // green-600
 
 // ---- layout -------------------------------------------------------------
 const box = useTemplateRef<HTMLDivElement>('box')
@@ -78,7 +76,7 @@ const band = computed(() => (plotW.value - PAD.right) / Math.max(1, props.bars.l
 /** red (worst) → green (best), through amber in the middle */
 const color = (b: DeviationBar) => {
   const t = (better(b.value) / scale.value.maxAbs + 1) / 2
-  return `color-mix(in oklch, ${GREEN} ${Math.round(Math.max(0, Math.min(1, t)) * 100)}%, ${RED})`
+  return rampColor(t)
 }
 
 const items = computed(() => {
@@ -128,10 +126,10 @@ const active = ref<number | null>(null)
 const activeItem = computed(() => (active.value == null ? null : items.value[active.value] ?? null))
 const lastPointer = ref('mouse')
 
-/** mouse: click opens the restaurant; touch: first tap shows the tooltip, second tap opens it */
+/** mouse: click opens the restaurant; touch/pen: a tap only shows (or hides) the tooltip, never navigates */
 function onClick(i: number) {
-  if (lastPointer.value !== 'mouse' && active.value !== i) {
-    active.value = i
+  if (lastPointer.value !== 'mouse') {
+    active.value = active.value === i ? null : i
     return
   }
   navigateTo(items.value[i]!.bar.to)
@@ -243,7 +241,8 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
           <g
             v-for="(it, i) in items"
             :key="it.bar.id"
-            class="cursor-pointer outline-none"
+            class="outline-none"
+            :class="lastPointer === 'mouse' && 'cursor-pointer'"
             tabindex="0"
             role="link"
             :aria-label="`${it.bar.name}, ${formatDate(it.bar.date)}: ${format(it.bar.value)} (${signed(it.bar.value - avg)} zum Ø)`"
@@ -331,8 +330,11 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
           :style="{ color: activeItem.fill }"
         >{{ signed(activeItem.bar.value - avg) }}</span>
       </div>
-      <div class="mt-2 text-xs text-muted-foreground">
-        {{ lastPointer === 'mouse' ? 'Klick' : 'Nochmal tippen' }} → Brauhaus-Seite
+      <div
+        v-if="lastPointer === 'mouse'"
+        class="mt-2 text-xs text-muted-foreground"
+      >
+        Klick → Brauhaus-Seite
       </div>
     </div>
   </div>

@@ -6,7 +6,7 @@ import type { Ref } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { groupBy, mean } from '@/lib/stats'
 import { formatScore } from '@/lib/format'
-import { scoreColor, scoreGradient } from '@/lib/score-color'
+import { rampGradient, scoreScale } from '@/lib/score-color'
 
 const geo = rawGeo as KoelnGeo
 const { visits } = useStammtisch()
@@ -116,7 +116,7 @@ const dots = inKoeln.map((r) => {
 
 /* ---------- color: sequential amber (beer), binned counts ---------- */
 
-/** ColorBrewer YlOrBr light amber → dark brown: ordinal, and clearly apart from the blue Rhine and the green scores */
+/** ColorBrewer YlOrBr light amber → dark brown: ordinal, and clearly apart from the blue Rhine */
 const RAMP = ['#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#8c2d04']
 const EDGES = [1, 2, 3, 5, 10, 20, 50]
 
@@ -140,19 +140,12 @@ const bins = computed<Bin[]>(() => {
 
 const colorOfCount = (n: number): string | undefined => bins.value.find(b => n >= b.min && n <= b.max)?.color
 
-/* ---------- color: Ø Bewertung, green like the score tiles, stretched over the districts' range ---------- */
+/* ---------- color: Ø Bewertung, red → amber (Ø of the districts) → green, like the score tiles ---------- */
 
-const scoreRange = computed(() => {
-  const xs = areas.value.map(a => a.score).filter((x): x is number => x != null)
-  return xs.length ? { min: Math.min(...xs), max: Math.max(...xs) } : null
-})
+const scoreRange = computed(() => scoreScale(areas.value.map(a => a.score)))
 
-const colorOfScore = (s: number): string => {
-  const r = scoreRange.value!
-  const f = r.max > r.min ? (s - r.min) / (r.max - r.min) : 1
-  return scoreColor(f)
-}
-const gradient = scoreGradient()
+const colorOfScore = (s: number): string => scoreRange.value!.color(s)
+const gradient = rampGradient()
 
 /** fill of an area in the current mode, undefined = no data (muted) */
 const fillOf = (a: Area): string | undefined => mode.value === 'anzahl'
@@ -280,26 +273,26 @@ const rotated = ref(false)
           <FullscreenButton />
         </div>
         <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
-          <div
+          <Tabs
             v-for="t in TOGGLES"
             :key="t.label"
-            class="inline-flex rounded-lg border p-0.5 text-sm max-sm:flex max-sm:w-full"
-            role="radiogroup"
-            :aria-label="t.label"
+            v-model="t.model.value"
+            class="max-sm:w-full"
           >
-            <button
-              v-for="o in t.options"
-              :key="o.key"
-              type="button"
-              role="radio"
-              :aria-checked="t.model.value === o.key"
-              class="rounded-md px-2.5 py-1 transition-colors max-sm:flex-1"
-              :class="t.model.value === o.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
-              @click="t.model.value = o.key"
+            <TabsList
+              :aria-label="t.label"
+              class="max-sm:w-full"
             >
-              {{ o.label }}
-            </button>
-          </div>
+              <TabsTrigger
+                v-for="o in t.options"
+                :key="o.key"
+                :value="o.key"
+                class="px-3"
+              >
+                {{ o.label }}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardAction>
       </CardHeader>
 
@@ -520,6 +513,7 @@ const rotated = ref(false)
                 :style="{ background: gradient }"
               />
               {{ formatScore(scoreRange.max) }}
+              <span class="text-muted-foreground">(Mitte = Ø {{ formatScore(scoreRange.avg) }})</span>
             </span>
             <span class="inline-flex items-center gap-1.5">
               <span class="size-2.5 rounded-full bg-foreground" /> Brauhaus

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ChevronDown, Crown, Repeat2 } from '@lucide/vue'
+import { ChevronDown, Crown, Repeat2, Trophy } from '@lucide/vue'
 import type { Metric, ScoreTile } from '@/lib/score-tiles'
 import { formatDate, formatScore } from '@/lib/format'
-import { scoreColor, scoreGradient } from '@/lib/score-color'
+import { rampGradient, scoreScale } from '@/lib/score-color'
 
 type Sort = Metric | 'datum'
 
@@ -31,28 +31,47 @@ const sort = ref<Sort>('gesamt')
 /** the value shown and coloured; sorting by date keeps Ø Gesamt */
 const metric = computed<Metric>(() => (sort.value === 'datum' ? 'gesamt' : sort.value))
 
-const range = computed(() => {
-  const xs = props.tiles.map(t => t.scores[metric.value]).filter((x): x is number => x != null)
-  return { min: Math.min(...xs), max: Math.max(...xs) }
+/** red (worst) → amber (Ø) → green (best) over the shown metric */
+const scale = computed(() => scoreScale(props.tiles.map(t => t.scores[metric.value])))
+const gradient = rampGradient()
+
+/** trophy colours for places 1–3 (gold, silver, bronze) */
+const PODIUM = [
+  { color: '#f5c518', label: 'Gold' },
+  { color: '#c0c7d0', label: 'Silber' },
+  { color: '#cd7f32', label: 'Bronze' },
+]
+
+/** place by Ø Gesamt (ties share a place), only places 1–3 */
+const podium = computed(() => {
+  const xs = props.tiles.map(t => t.scores.gesamt).filter((x): x is number => x != null)
+  const places = new Map<string, number>()
+  for (const t of props.tiles) {
+    const g = t.scores.gesamt
+    if (g == null) continue
+    const place = 1 + xs.filter(x => x > g).length
+    if (place <= 3) places.set(t.key, place)
+  }
+  return places
 })
 
 const items = computed(() => {
   const m = metric.value
-  const { min, max } = range.value
   const val = (t: ScoreTile) => t.scores[m] ?? -Infinity
   const list = [...props.tiles].sort(sort.value === 'datum'
     ? (a, b) => b.date.localeCompare(a.date)
     : (a, b) => val(b) - val(a))
   return list.map((t, i) => {
     const value = t.scores[m]
-    const f = value == null ? 0 : max > min ? (value - min) / (max - min) : 1
     return {
       ...t,
       rank: i + 1,
       value,
+      /** trophy badge while sorted by date, where the rank number is not shown */
+      place: sort.value === 'datum' ? podium.value.get(t.key) : undefined,
       /** scored tiles always get black text */
       scored: value != null,
-      bg: value == null ? 'var(--muted)' : scoreColor(f),
+      bg: value == null || !scale.value ? 'var(--muted)' : scale.value.color(value),
     }
   })
 })
@@ -123,16 +142,18 @@ const items = computed(() => {
               </Tabs>
             </div>
             <div
+              v-if="scale"
               class="flex w-full flex-col gap-1 sm:w-48"
               aria-hidden="true"
             >
               <div
                 class="h-2.5 rounded-full"
-                :style="{ background: scoreGradient() }"
+                :style="{ background: gradient }"
               />
               <div class="flex justify-between text-xs text-muted-foreground tabular-nums">
-                <span>{{ formatScore(range.min) }}</span>
-                <span>{{ formatScore(range.max) }}</span>
+                <span>{{ formatScore(scale.min) }}</span>
+                <span>Ø {{ formatScore(scale.avg) }}</span>
+                <span>{{ formatScore(scale.max) }}</span>
               </div>
             </div>
           </div>
@@ -149,27 +170,58 @@ const items = computed(() => {
                 :style="{ backgroundColor: t.bg }"
               >
                 <span class="flex min-w-0 flex-1 flex-col gap-1">
-                  <span class="flex min-w-0 items-center gap-2 font-medium">
+                  <span
+                    class="flex min-w-0 items-center gap-2"
+                    :class="t.scored ? 'font-semibold' : 'font-medium'"
+                  >
                     <span class="truncate">
                       <template v-if="sort !== 'datum'">{{ t.rank }}. </template>{{ t.name }}
                     </span>
                     <span
-                      v-if="t.repeat"
-                      class="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal tabular-nums"
-                      :class="t.scored ? 'opacity-80' : 'text-muted-foreground'"
-                      :title="`${t.repeat}. Besuch`"
+                      v-if="t.place || t.repeat || (t.badge && t.badgeTone !== 'subtle')"
+                      class="ml-auto flex shrink-0 items-center gap-1"
                     >
-                      <Repeat2
-                        class="size-3.5"
-                        aria-hidden="true"
-                      />
-                      {{ t.repeat }}
-                      <span class="sr-only">. Besuch</span>
+                      <span
+                        v-if="t.place"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums"
+                        :title="`${t.place}. Platz (Ø Gesamt)`"
+                      >
+                        <Trophy
+                          class="size-3"
+                          :style="{ color: PODIUM[t.place - 1]!.color }"
+                          :fill="PODIUM[t.place - 1]!.color"
+                          aria-hidden="true"
+                        />
+                        {{ t.place }}.
+                        <span class="sr-only">Platz, {{ PODIUM[t.place - 1]!.label }}</span>
+                      </span>
+                      <span
+                        v-if="t.repeat"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums"
+                        :title="`${t.repeat}. Besuch`"
+                      >
+                        <Repeat2
+                          class="size-3"
+                          aria-hidden="true"
+                        />
+                        {{ t.repeat }}
+                        <span class="sr-only">. Besuch</span>
+                      </span>
+                      <span
+                        v-if="t.badge && t.badgeTone !== 'subtle'"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                      >
+                        <Crown
+                          class="size-3 text-violet-300"
+                          aria-hidden="true"
+                        />
+                        {{ t.badge }}
+                      </span>
                     </span>
                   </span>
                   <span
                     class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
-                    :class="t.scored ? 'opacity-80' : 'text-muted-foreground'"
+                    :class="t.scored ? 'font-medium text-black/85' : 'text-muted-foreground'"
                   >
                     <span>{{ formatDate(t.date) }}</span>
                     <template
@@ -183,16 +235,6 @@ const items = computed(() => {
                       v-if="t.badge && t.badgeTone === 'subtle'"
                       class="inline-flex shrink-0 items-center rounded-full border border-current/30 bg-transparent px-1.5 py-0.5 text-[10px] font-medium"
                     >
-                      {{ t.badge }}
-                    </span>
-                    <span
-                      v-else-if="t.badge"
-                      class="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-950 dark:text-violet-200"
-                    >
-                      <Crown
-                        class="size-3"
-                        aria-hidden="true"
-                      />
                       {{ t.badge }}
                     </span>
                   </span>
