@@ -273,6 +273,11 @@ const rotated = ref(false)
           <FullscreenButton />
         </div>
         <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+          <!-- fullscreen is landscape (≥ sm): the exit button sits above the toggles there -->
+          <FullscreenButton
+            v-if="full"
+            class="max-sm:hidden"
+          />
           <Tabs
             v-for="t in TOGGLES"
             :key="t.label"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Star } from '@lucide/vue'
 import type { Visit } from '#shared/types'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
@@ -39,7 +40,7 @@ const perHead = (v: Visit) => {
         <CardTitle class="text-xl">
           Preis/Leistung im Zeitverlauf
         </CardTitle>
-        <CardDescription>
+        <CardDescription v-if="!full">
           € pro Kopf geteilt durch die Gesamtbewertung · ein Balken pro Besuch, chronologisch ·
           Abstand zum Ø: günstiger fürs Gebotene nach oben, teurer nach unten
         </CardDescription>
@@ -86,6 +87,19 @@ const perHead = (v: Visit) => {
                 {{ formatScore(byNr.get(bar.id)!.averages.gesamt) }}
               </dd>
             </dl>
+          </template>
+          <template #row="{ bar }">
+            <span v-if="perHead(byNr.get(bar.id)!) != null">
+              {{ formatEuro(perHead(byNr.get(bar.id)!)!, true) }}/Kopf
+            </span>
+            <span class="inline-flex items-center gap-0.5">
+              <Star
+                class="size-3"
+                aria-hidden="true"
+              />
+              <span class="sr-only">Gesamt</span>
+              {{ formatScore(byNr.get(bar.id)!.averages.gesamt) }}
+            </span>
           </template>
         </AnalyseDeviationBarChart>
       </CardContent>

@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { createReusableTemplate } from '@vueuse/core'
 import { Handshake, MapPin, Star, Utensils } from '@lucide/vue'
 import type { Category } from '#shared/types'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate, formatScore } from '@/lib/format'
 
 type Key = Category | 'gesamt'
+
+/** the category switch: below the title normally, next to it in fullscreen */
+const [DefineTabs, ReuseTabs] = createReusableTemplate()
 
 const { visits } = useStammtisch()
 
@@ -37,16 +41,40 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
 
 <template>
   <FullscreenCard v-model:full="full">
+    <!-- single root, so the page's class still lands on FullscreenCard -->
+    <DefineTabs>
+      <Tabs v-model="selected">
+        <TabsList>
+          <TabsTrigger
+            v-for="c in CATS"
+            :key="c.key"
+            :value="c.key"
+            class="gap-1.5 px-3"
+          >
+            <component
+              :is="c.icon"
+              class="hidden size-3.5 sm:block"
+              aria-hidden="true"
+            />
+            <span class="sm:hidden">{{ c.short }}</span>
+            <span class="hidden sm:inline">{{ c.label }}</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </DefineTabs>
+
     <Card>
       <CardHeader>
         <CardTitle class="text-xl">
           Bewertungen im Zeitverlauf
         </CardTitle>
-        <CardDescription>
+        <CardDescription v-if="!full">
           Ein Balken pro Besuch, chronologisch · Abstand zum Ø aller Besuche:
           besser nach oben, schlechter nach unten
         </CardDescription>
-        <CardAction>
+        <CardAction class="flex items-center gap-2">
+          <!-- fullscreen: the category switch moves up next to the title -->
+          <ReuseTabs v-if="full" />
           <FullscreenButton />
         </CardAction>
       </CardHeader>
@@ -55,25 +83,11 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
         class="flex flex-col gap-4"
         :class="full && 'flex-1'"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <Tabs v-model="selected">
-            <TabsList>
-              <TabsTrigger
-                v-for="c in CATS"
-                :key="c.key"
-                :value="c.key"
-                class="gap-1.5 px-3"
-              >
-                <component
-                  :is="c.icon"
-                  class="hidden size-3.5 sm:block"
-                  aria-hidden="true"
-                />
-                <span class="sm:hidden">{{ c.short }}</span>
-                <span class="hidden sm:inline">{{ c.label }}</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div
+          v-if="!full"
+          class="flex flex-wrap items-center justify-between gap-3"
+        >
+          <ReuseTabs />
         </div>
 
         <AnalyseDeviationBarChart
@@ -82,6 +96,7 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
           higher-is-better
           :format="formatScore"
           :full="full"
+          row-hide-value
           :aria-label="`${cat.label}-Bewertung aller ${bars.length} Besuche im Vergleich zum Ø`"
         >
           <template #tooltip="{ bar }">
@@ -113,6 +128,24 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
                 </dd>
               </template>
             </dl>
+          </template>
+          <template #row="{ bar }">
+            <span
+              v-for="c in CATS"
+              :key="c.key"
+              class="inline-flex items-center gap-0.5"
+              :class="c.key === selected && 'font-semibold text-foreground'"
+              :title="c.label"
+            >
+              <component
+                :is="c.icon"
+                class="size-3"
+                :style="{ color: c.color }"
+                aria-hidden="true"
+              />
+              <span class="sr-only">{{ c.label }}</span>
+              {{ formatScore(byNr.get(bar.id)!.averages[c.key]) }}
+            </span>
           </template>
         </AnalyseDeviationBarChart>
       </CardContent>
