@@ -57,6 +57,7 @@ const perHead = (v: Visit) => {
           :higher-is-better="false"
           :format="fmt"
           :full="full"
+          row-hide-value
           :aria-label="`Preis/Leistung aller ${bars.length} Besuche im Vergleich zum Ø`"
         >
           <template #tooltip="{ bar }">
@@ -100,6 +101,9 @@ const perHead = (v: Visit) => {
               />
               <span class="sr-only">Gesamt</span>
               {{ formatScore(byNr.get(bar.id)!.averages.gesamt) }}
+            </span>
+            <span class="font-semibold text-foreground">
+              {{ fmt(bar.value) }} € pro Punkt
             </span>
           </template>
         </AnalyseDeviationBarChart>

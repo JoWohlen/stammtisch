@@ -3,7 +3,7 @@ import type { Coords, District, KoelnGeo } from '#shared/types'
 import rawGeo from '../../../data/koeln-geo.json'
 import { contains, districtPath, fitProjection, labelPoint } from '@/lib/geo'
 import type { Ref } from 'vue'
-import { useElementSize } from '@vueuse/core'
+import { createReusableTemplate, useElementSize, useEventListener } from '@vueuse/core'
 import { groupBy, mean } from '@/lib/stats'
 import { formatScore } from '@/lib/format'
 import { rampGradient, scoreScale } from '@/lib/score-color'
@@ -192,6 +192,7 @@ function onMove(e: PointerEvent, a: Area) {
 function onTap(e: PointerEvent, a: Area) {
   if (e.pointerType === 'mouse') return
   e.stopPropagation()
+  if (gesturing.value) return
   if (pinned.value) return clear()
   show(e, a)
   pinned.value = true
@@ -199,6 +200,7 @@ function onTap(e: PointerEvent, a: Area) {
 
 /** a tap on the map outside every district */
 function onMapTap(e: PointerEvent) {
+  if (gesturing.value) return
   if (e.pointerType !== 'mouse' && pinned.value) clear()
 }
 
@@ -233,6 +235,72 @@ const tooltipStyle = computed(() => {
   }
 })
 
+/* ---------- two-finger zoom ---------- */
+
+/** max zoom factor */
+const MAX_ZOOM = 8
+const svgEl = ref<SVGSVGElement | null>(null)
+/** zoom factor and top-left corner of the visible part, in map units */
+const view = ref({ k: 1, x: 0, y: 0 })
+const viewBox = computed(() => {
+  const { k, x, y } = view.value
+  return `${x} ${y} ${proj.width / k} ${proj.height / k}`
+})
+/** strokes, dots and labels keep their on-screen size while zoomed */
+const px = (n: number) => n / view.value.k
+
+/** a finger's position on the drawn map, 0..1 on both axes (the fullscreen may be turned by 90°) */
+function local(t: Touch) {
+  const r = svgEl.value!.getBoundingClientRect()
+  return rotated.value
+    ? { x: (t.clientY - r.top) / r.height, y: (r.right - t.clientX) / r.width }
+    : { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height }
+}
+const midDist = (a: Touch, b: Touch) => {
+  const p = local(a)
+  const q = local(b)
+  return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, d: Math.hypot((p.x - q.x) * proj.width, (p.y - q.y) * proj.height) }
+}
+
+/** pinch in progress: the map point under the fingers' midpoint and the distance at its start */
+let pinch: { mx: number, my: number, d: number, k: number } | null = null
+/** true from the second finger until all fingers are up: the lifting fingers must not count as a tap */
+const gesturing = ref(false)
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length !== 2) return
+  e.preventDefault()
+  const { x, y, d } = midDist(e.touches[0]!, e.touches[1]!)
+  const { k, x: vx, y: vy } = view.value
+  pinch = { mx: vx + x * proj.width / k, my: vy + y * proj.height / k, d: Math.max(d, 1), k }
+  gesturing.value = true
+  clear()
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!pinch || e.touches.length !== 2) return
+  e.preventDefault()
+  const { x, y, d } = midDist(e.touches[0]!, e.touches[1]!)
+  const k = Math.min(MAX_ZOOM, Math.max(1, pinch.k * d / pinch.d))
+  const w = proj.width / k
+  const h = proj.height / k
+  // keep the map point that started under the fingers under them (zoom + pan in one)
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max))
+  view.value = { k, x: clamp(pinch.mx - x * w, proj.width - w), y: clamp(pinch.my - y * h, proj.height - h) }
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (e.touches.length < 2) pinch = null
+  if (e.touches.length === 0) gesturing.value = false
+}
+
+useEventListener(svgEl, 'touchstart', onTouchStart, { passive: false })
+useEventListener(svgEl, 'touchmove', onTouchMove, { passive: false })
+useEventListener(svgEl, 'touchend', onTouchEnd)
+useEventListener(svgEl, 'touchcancel', onTouchEnd)
+
+const resetZoom = () => (view.value = { k: 1, x: 0, y: 0 })
+
 /* ---------- ranking (table view of the same data) ---------- */
 
 const ranking = computed(() => {
@@ -248,6 +316,16 @@ const plural = (n: number) => `${n} ${n === 1 ? 'Brauhaus' : 'Brauhäuser'}`
 const full = ref(false)
 /** fullscreen turned by 90° (iPhone held upright): pointer coordinates must be turned back */
 const rotated = ref(false)
+
+/** the Gliederung/Färbung toggles: in the header normally, next to the map in fullscreen */
+const [DefineToggles, ReuseToggles] = createReusableTemplate<{ wide?: boolean }>()
+
+/** fullscreen: the map takes the biggest size that fits the space left of the list (no vertical scrolling) */
+const mapArea = ref<HTMLElement | null>(null)
+const mapAreaSize = useElementSize(mapArea)
+const fullMapStyle = computed(() => ({
+  width: `${Math.min(mapAreaSize.width.value, mapAreaSize.height.value * proj.width / proj.height)}px`,
+}))
 </script>
 
 <template>
@@ -255,239 +333,272 @@ const rotated = ref(false)
     v-model:full="full"
     v-model:rotated="rotated"
   >
-    <Card>
+    <!-- single root, so the page's class still lands on FullscreenCard -->
+    <DefineToggles v-slot="{ wide }">
+      <Tabs
+        v-for="t in TOGGLES"
+        :key="t.label"
+        v-model="t.model.value"
+        :class="wide ? 'w-full' : 'max-sm:w-full'"
+      >
+        <TabsList
+          :aria-label="t.label"
+          :class="wide ? 'w-full' : 'max-sm:w-full'"
+        >
+          <TabsTrigger
+            v-for="o in t.options"
+            :key="o.key"
+            :value="o.key"
+            class="px-3"
+          >
+            {{ o.label }}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </DefineToggles>
+
+    <!-- fullscreen: tighter, and min-h-0 + overflow-hidden so the screen itself never scrolls -->
+    <Card :class="full && 'min-h-0 gap-2 overflow-hidden py-3 sm:gap-2 sm:py-3'">
       <CardHeader>
         <CardTitle class="text-xl">
           Köln-Karte
         </CardTitle>
-        <CardDescription class="max-sm:col-start-1">
-          <template v-if="mode === 'anzahl'">
-            In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
-          </template>
-          <template v-else>
-            Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
-          </template>
-          Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
-        </CardDescription>
-        <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
-          <FullscreenButton />
-        </div>
-        <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
-          <!-- fullscreen is landscape (≥ sm): the exit button sits above the toggles there -->
-          <FullscreenButton
-            v-if="full"
-            class="max-sm:hidden"
-          />
-          <Tabs
-            v-for="t in TOGGLES"
-            :key="t.label"
-            v-model="t.model.value"
-            class="max-sm:w-full"
-          >
-            <TabsList
-              :aria-label="t.label"
-              class="max-sm:w-full"
-            >
-              <TabsTrigger
-                v-for="o in t.options"
-                :key="o.key"
-                :value="o.key"
-                class="px-3"
-              >
-                {{ o.label }}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardAction>
+        <template v-if="full">
+          <CardAction>
+            <FullscreenButton />
+          </CardAction>
+        </template>
+        <template v-else>
+          <CardDescription class="max-sm:col-start-1">
+            <template v-if="mode === 'anzahl'">
+              In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
+            </template>
+            <template v-else>
+              Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
+            </template>
+            Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
+          </CardDescription>
+          <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
+            <FullscreenButton />
+          </div>
+          <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+            <ReuseToggles />
+          </CardAction>
+        </template>
       </CardHeader>
 
-      <CardContent class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
-        <div class="flex flex-col gap-3">
+      <!-- fullscreen: map on the left over both rows, toggles and list on the right -->
+      <CardContent
+        class="grid"
+        :class="full
+          ? 'min-h-0 flex-1 grid-cols-[minmax(0,1fr)_14rem] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3'
+          : 'gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]'"
+      >
+        <div
+          class="flex flex-col gap-3"
+          :class="full && 'row-span-2 min-h-0'"
+        >
           <div
-            ref="box"
-            class="relative"
-            :class="full && 'mx-auto w-full'"
-            :style="full ? { maxWidth: `calc((var(--fs-height) - 9rem) * ${proj.width / proj.height})` } : undefined"
-            @pointerleave="onLeave"
-            @pointerup="onMapTap"
+            ref="mapArea"
+            :class="full && 'flex min-h-0 flex-1 justify-center'"
           >
-            <svg
-              :viewBox="`0 0 ${proj.width} ${proj.height}`"
-              class="block h-auto w-full"
-              role="img"
-              :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach ${mode === 'anzahl' ? 'Anzahl besuchter Brauhäuser' : 'Ø Bewertung der Brauhäuser'}`"
+            <div
+              ref="box"
+              class="relative"
+              :style="full ? fullMapStyle : undefined"
+              @pointerleave="onLeave"
+              @pointerup="onMapTap"
             >
-              <defs>
-                <!-- everything district-related ends at the riverbank: the river band is cut out -->
-                <mask
-                  :id="maskId"
-                  maskUnits="userSpaceOnUse"
-                  x="0"
-                  y="0"
-                  :width="proj.width"
-                  :height="proj.height"
-                >
-                  <rect
+              <!-- one finger scrolls the page, two fingers zoom/pan the map (touch-action: no browser pinch here) -->
+              <svg
+                ref="svgEl"
+                :viewBox="viewBox"
+                class="block h-auto w-full touch-pan-x touch-pan-y"
+                role="img"
+                :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach ${mode === 'anzahl' ? 'Anzahl besuchter Brauhäuser' : 'Ø Bewertung der Brauhäuser'}`"
+              >
+                <defs>
+                  <!-- everything district-related ends at the riverbank: the river band is cut out -->
+                  <mask
+                    :id="maskId"
+                    maskUnits="userSpaceOnUse"
+                    x="0"
+                    y="0"
                     :width="proj.width"
                     :height="proj.height"
-                    fill="white"
+                  >
+                    <rect
+                      :width="proj.width"
+                      :height="proj.height"
+                      fill="white"
+                    />
+                    <path
+                      :d="rheinPath"
+                      fill="none"
+                      stroke="black"
+                      :stroke-width="rheinWidth"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                    />
+                  </mask>
+                  <clipPath
+                    v-if="activeArea"
+                    :id="clipId"
+                  >
+                    <path
+                      :d="activeArea.path"
+                      clip-rule="evenodd"
+                    />
+                  </clipPath>
+                </defs>
+
+                <g :mask="`url(#${maskId})`">
+                  <!-- areas -->
+                  <g fill-rule="evenodd">
+                    <path
+                      v-for="a in areas"
+                      :key="a.district.nummer"
+                      :d="a.path"
+                      class="cursor-pointer stroke-foreground/30 transition-[fill-opacity]"
+                      :class="fillOf(a) ? '' : 'fill-muted'"
+                      :style="fillOf(a) ? { fill: fillOf(a) } : undefined"
+                      :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.6 : 1"
+                      :stroke-width="px(1)"
+                      stroke-linejoin="round"
+                      @pointermove="onMove($event, a)"
+                      @pointerup="onTap($event, a)"
+                    />
+                  </g>
+
+                  <!-- Stadtbezirk borders on top, always visible -->
+                  <g
+                    class="pointer-events-none fill-none stroke-foreground/70"
+                    :stroke-width="px(2)"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      v-for="(d, i) in bezirkPaths"
+                      :key="i"
+                      :d="d"
+                    />
+                  </g>
+
+                  <!-- hovered area outline -->
+                  <path
+                    v-if="activeArea"
+                    :d="activeArea.path"
+                    class="pointer-events-none fill-none stroke-foreground"
+                    :stroke-width="px(3)"
+                    stroke-linejoin="round"
+                  />
+                </g>
+
+                <!-- Rhine: a band 2 px wider than the water = 1 px border on each bank (like the Stadtteil borders) -->
+                <g
+                  class="pointer-events-none fill-none"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                >
+                  <path
+                    :d="rheinPath"
+                    class="stroke-foreground/30"
+                    :stroke-width="rheinWidth + px(2)"
+                  />
+                  <!-- hovered district: its outline continues along the bank (3 px, only inside the district) -->
+                  <path
+                    v-if="activeArea"
+                    :d="rheinPath"
+                    class="stroke-foreground"
+                    :stroke-width="rheinWidth + px(6)"
+                    :clip-path="`url(#${clipId})`"
                   />
                   <path
                     :d="rheinPath"
-                    fill="none"
-                    stroke="black"
+                    class="stroke-[oklch(0.42_0.12_255)] dark:stroke-[oklch(0.5_0.13_255)]"
                     :stroke-width="rheinWidth"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
                   />
-                </mask>
-                <clipPath
-                  v-if="activeArea"
-                  :id="clipId"
-                >
-                  <path
-                    :d="activeArea.path"
-                    clip-rule="evenodd"
-                  />
-                </clipPath>
-              </defs>
+                </g>
 
-              <g :mask="`url(#${maskId})`">
-                <!-- areas -->
-                <g fill-rule="evenodd">
-                  <path
+                <!-- restaurants -->
+                <g class="pointer-events-none">
+                  <circle
+                    v-for="d in dots"
+                    :key="d.r.slug"
+                    :cx="d.x"
+                    :cy="d.y"
+                    :r="px(4.5)"
+                    class="fill-foreground stroke-background"
+                    :stroke-width="px(2)"
+                  />
+                </g>
+
+                <!-- Bezirk names -->
+                <g
+                  v-if="level === 'stadtbezirke'"
+                  class="pointer-events-none fill-foreground font-medium"
+                  :font-size="px(22)"
+                  text-anchor="middle"
+                >
+                  <text
                     v-for="a in areas"
                     :key="a.district.nummer"
-                    :d="a.path"
-                    class="cursor-pointer stroke-foreground/30 transition-[fill-opacity]"
-                    :class="fillOf(a) ? '' : 'fill-muted'"
-                    :style="fillOf(a) ? { fill: fillOf(a) } : undefined"
-                    :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.6 : 1"
-                    stroke-width="1"
-                    stroke-linejoin="round"
-                    @pointermove="onMove($event, a)"
-                    @pointerup="onTap($event, a)"
-                  />
+                    :x="a.label[0]"
+                    :y="a.label[1]"
+                    class="stroke-background"
+                    :stroke-width="px(5)"
+                    paint-order="stroke"
+                  >{{ a.district.name }}</text>
                 </g>
+              </svg>
 
-                <!-- Stadtbezirk borders on top, always visible -->
-                <g
-                  class="pointer-events-none fill-none stroke-foreground/70"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    v-for="(d, i) in bezirkPaths"
-                    :key="i"
-                    :d="d"
-                  />
-                </g>
-
-                <!-- hovered area outline -->
-                <path
-                  v-if="activeArea"
-                  :d="activeArea.path"
-                  class="pointer-events-none fill-none stroke-foreground"
-                  stroke-width="3"
-                  stroke-linejoin="round"
-                />
-              </g>
-
-              <!-- Rhine: a band 2 px wider than the water = 1 px border on each bank (like the Stadtteil borders) -->
-              <g
-                class="pointer-events-none fill-none"
-                stroke-linejoin="round"
-                stroke-linecap="round"
+              <button
+                v-if="view.k > 1"
+                type="button"
+                class="absolute top-2 right-2 rounded-md border bg-background/90 px-2 py-1 text-xs shadow-sm"
+                @click="resetZoom"
               >
-                <path
-                  :d="rheinPath"
-                  class="stroke-foreground/30"
-                  :stroke-width="rheinWidth + 2"
-                />
-                <!-- hovered district: its outline continues along the bank (3 px, only inside the district) -->
-                <path
-                  v-if="activeArea"
-                  :d="rheinPath"
-                  class="stroke-foreground"
-                  :stroke-width="rheinWidth + 6"
-                  :clip-path="`url(#${clipId})`"
-                />
-                <path
-                  :d="rheinPath"
-                  class="stroke-[oklch(0.42_0.12_255)] dark:stroke-[oklch(0.5_0.13_255)]"
-                  :stroke-width="rheinWidth"
-                />
-              </g>
+                Zoom zurücksetzen
+              </button>
 
-              <!-- restaurants -->
-              <g class="pointer-events-none">
-                <circle
-                  v-for="d in dots"
-                  :key="d.r.slug"
-                  :cx="d.x"
-                  :cy="d.y"
-                  r="4.5"
-                  class="fill-foreground stroke-background"
-                  stroke-width="2"
-                />
-              </g>
-
-              <!-- Bezirk names -->
-              <g
-                v-if="level === 'stadtbezirke'"
-                class="pointer-events-none fill-foreground text-[22px] font-medium"
-                text-anchor="middle"
-              >
-                <text
-                  v-for="a in areas"
-                  :key="a.district.nummer"
-                  :x="a.label[0]"
-                  :y="a.label[1]"
-                  class="stroke-background"
-                  stroke-width="5"
-                  paint-order="stroke"
-                >{{ a.district.name }}</text>
-              </g>
-            </svg>
-
-            <!-- tooltip -->
-            <div
-              v-if="activeArea && fromMap"
-              ref="tip"
-              class="pointer-events-none absolute z-10 w-60 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
-              :style="tooltipStyle"
-            >
-              <div class="font-semibold leading-tight">
-                {{ activeArea.district.name }}
-              </div>
+              <!-- tooltip -->
               <div
-                v-if="level === 'stadtteile'"
-                class="mt-0.5 text-xs text-muted-foreground"
+                v-if="activeArea && fromMap"
+                ref="tip"
+                class="pointer-events-none absolute z-10 w-60 max-w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+                :style="tooltipStyle"
               >
-                Bezirk {{ activeArea.district.stadtbezirk }}
-              </div>
-              <div class="mt-2 text-sm tabular-nums">
-                {{ plural(activeArea.restaurants.length) }}<template v-if="mode === 'bewertung'">
-                  · Ø {{ formatScore(activeArea.score) }}
-                </template>
-              </div>
-              <ul
-                v-if="activeArea.restaurants.length"
-                class="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground"
-              >
-                <li
-                  v-for="r in activeArea.restaurants"
-                  :key="r.slug"
+                <div class="font-semibold leading-tight">
+                  {{ activeArea.district.name }}
+                </div>
+                <div
+                  v-if="level === 'stadtteile'"
+                  class="mt-0.5 text-xs text-muted-foreground"
                 >
-                  <span class="flex justify-between gap-2">
-                    <span>{{ r.name }}<template v-if="r.besuche > 1"> ({{ r.besuche }}×)</template></span>
-                    <span
-                      v-if="mode === 'bewertung'"
-                      class="tabular-nums"
-                    >{{ formatScore(r.gesamt) }}</span>
-                  </span>
-                </li>
-              </ul>
+                  Bezirk {{ activeArea.district.stadtbezirk }}
+                </div>
+                <div class="mt-2 text-sm tabular-nums">
+                  {{ plural(activeArea.restaurants.length) }}<template v-if="mode === 'bewertung'">
+                    · Ø {{ formatScore(activeArea.score) }}
+                  </template>
+                </div>
+                <ul
+                  v-if="activeArea.restaurants.length"
+                  class="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground"
+                >
+                  <li
+                    v-for="r in activeArea.restaurants"
+                    :key="r.slug"
+                  >
+                    <span class="flex justify-between gap-2">
+                      <span>{{ r.name }}<template v-if="r.besuche > 1"> ({{ r.besuche }}×)</template></span>
+                      <span
+                        v-if="mode === 'bewertung'"
+                        class="tabular-nums"
+                      >{{ formatScore(r.gesamt) }}</span>
+                    </span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -532,8 +643,18 @@ const rotated = ref(false)
           </div>
         </div>
 
-        <!-- ranking -->
-        <div class="flex flex-col gap-3">
+        <div
+          v-if="full"
+          class="col-start-2 row-start-1 flex flex-col gap-2"
+        >
+          <ReuseToggles wide />
+        </div>
+
+        <!-- ranking (fullscreen: scrolls on its own, the screen does not) -->
+        <div
+          class="flex flex-col gap-3"
+          :class="full && 'col-start-2 row-start-2 min-h-0 overflow-y-auto overscroll-contain'"
+        >
           <h3 class="text-sm font-medium">
             {{ level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke' }} {{ mode === 'anzahl' ? 'mit Besuchen' : 'nach Ø Bewertung' }}
           </h3>
@@ -563,13 +684,17 @@ const rotated = ref(false)
               <span class="tabular-nums">{{ mode === 'anzahl' ? a.restaurants.length : formatScore(a.score) }}</span>
             </li>
           </ol>
-          <p class="text-xs text-muted-foreground">
+          <p
+            v-if="!full"
+            class="text-xs text-muted-foreground"
+          >
             {{ plural(inKoeln.length) }} in Köln<template v-if="ausserhalb.length">
               · {{ ausserhalb.length }} außerhalb ({{ ausserhalb.map(r => r.name).join(', ') }})
             </template><template v-if="ohneKoordinaten.length">
               · {{ ohneKoordinaten.length }} ohne Koordinaten
             </template>
           </p>
+          <!-- OSM attribution stays, also in fullscreen -->
           <p class="text-xs text-muted-foreground">
             Rhein: ©
             <a
