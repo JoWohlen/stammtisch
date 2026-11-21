@@ -266,11 +266,26 @@ const tooltipStyle = computed(() => {
 /** max zoom factor */
 const MAX_ZOOM = 8
 const svgEl = ref<SVGSVGElement | null>(null)
+/**
+ * height of the visible part at zoom 1, in map units: the whole map normally; in fullscreen the map
+ * fills the width up to the list, so a wide screen shows a horizontal band of it (panned by one finger)
+ */
+const baseH = computed(() => {
+  const { width: w, height: h } = mapAreaSize
+  return full.value && w.value && h.value ? Math.min(proj.height, proj.width * h.value / w.value) : proj.height
+})
+/** smallest zoom: the whole map in view (below 1 only in fullscreen, where 1 = the band filling the width) */
+const minK = computed(() => baseH.value / proj.height)
+/** keep the visible part inside the map; a part bigger than the map (zoomed out) is centred on it */
+function clampView(k: number, x: number, y: number) {
+  const clamp = (v: number, over: number) => over < 0 ? over / 2 : Math.max(0, Math.min(v, over))
+  return { k, x: clamp(x, proj.width - proj.width / k), y: clamp(y, proj.height - baseH.value / k) }
+}
 /** zoom factor and top-left corner of the visible part, in map units */
 const view = ref({ k: 1, x: 0, y: 0 })
 const viewBox = computed(() => {
   const { k, x, y } = view.value
-  return `${x} ${y} ${proj.width / k} ${proj.height / k}`
+  return `${x} ${y} ${proj.width / k} ${baseH.value / k}`
 })
 /** strokes, dots and labels keep their on-screen size while zoomed */
 const px = (n: number) => n / view.value.k
@@ -285,39 +300,68 @@ function local(t: Touch) {
 const midDist = (a: Touch, b: Touch) => {
   const p = local(a)
   const q = local(b)
-  return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, d: Math.hypot((p.x - q.x) * proj.width, (p.y - q.y) * proj.height) }
+  return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, d: Math.hypot((p.x - q.x) * proj.width, (p.y - q.y) * baseH.value) }
 }
 
 /** pinch in progress: the map point under the fingers' midpoint and the distance at its start */
 let pinch: { mx: number, my: number, d: number, k: number } | null = null
-/** true from the second finger until all fingers are up: the lifting fingers must not count as a tap */
+/** one-finger drag in fullscreen (the screen doesn't scroll there): where it started, on screen and in the view */
+let drag: { sx: number, sy: number, vx: number, vy: number, moved: boolean } | null = null
+/** finger travel (in px) before a touch counts as a drag instead of a tap */
+const DRAG_SLOP = 8
+/** true from the second finger (or a drag) until all fingers are up: the lifting fingers must not count as a tap */
 const gesturing = ref(false)
 
 function onTouchStart(e: TouchEvent) {
+  if (e.touches.length === 1 && full.value) {
+    const t = e.touches[0]!
+    drag = { sx: t.clientX, sy: t.clientY, vx: view.value.x, vy: view.value.y, moved: false }
+    return
+  }
   if (e.touches.length !== 2) return
   e.preventDefault()
+  drag = null
   const { x, y, d } = midDist(e.touches[0]!, e.touches[1]!)
   const { k, x: vx, y: vy } = view.value
-  pinch = { mx: vx + x * proj.width / k, my: vy + y * proj.height / k, d: Math.max(d, 1), k }
+  pinch = { mx: vx + x * proj.width / k, my: vy + y * baseH.value / k, d: Math.max(d, 1), k }
   gesturing.value = true
   clear()
 }
 
 function onTouchMove(e: TouchEvent) {
+  if (drag && e.touches.length === 1) {
+    e.preventDefault()
+    const t = e.touches[0]!
+    if (!drag.moved && Math.hypot(t.clientX - drag.sx, t.clientY - drag.sy) < DRAG_SLOP) return
+    if (!drag.moved) {
+      drag.moved = true
+      gesturing.value = true
+      clear()
+    }
+    // screen px → map units (turned by 90°: screen y runs along the map's x axis)
+    const r = svgEl.value!.getBoundingClientRect()
+    const [dx, dy] = rotated.value
+      ? [t.clientY - drag.sy, drag.sx - t.clientX]
+      : [t.clientX - drag.sx, t.clientY - drag.sy]
+    const [w, h] = rotated.value ? [r.height, r.width] : [r.width, r.height]
+    const { k } = view.value
+    view.value = clampView(k, drag.vx - dx * proj.width / k / w, drag.vy - dy * baseH.value / k / h)
+    return
+  }
   if (!pinch || e.touches.length !== 2) return
   e.preventDefault()
   const { x, y, d } = midDist(e.touches[0]!, e.touches[1]!)
-  const k = Math.min(MAX_ZOOM, Math.max(1, pinch.k * d / pinch.d))
-  const w = proj.width / k
-  const h = proj.height / k
+  const k = Math.min(MAX_ZOOM, Math.max(minK.value, pinch.k * d / pinch.d))
   // keep the map point that started under the fingers under them (zoom + pan in one)
-  const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max))
-  view.value = { k, x: clamp(pinch.mx - x * w, proj.width - w), y: clamp(pinch.my - y * h, proj.height - h) }
+  view.value = clampView(k, pinch.mx - x * proj.width / k, pinch.my - y * baseH.value / k)
 }
 
 function onTouchEnd(e: TouchEvent) {
   if (e.touches.length < 2) pinch = null
-  if (e.touches.length === 0) gesturing.value = false
+  if (e.touches.length === 0) {
+    drag = null
+    gesturing.value = false
+  }
 }
 
 useEventListener(svgEl, 'touchstart', onTouchStart, { passive: false })
@@ -325,7 +369,8 @@ useEventListener(svgEl, 'touchmove', onTouchMove, { passive: false })
 useEventListener(svgEl, 'touchend', onTouchEnd)
 useEventListener(svgEl, 'touchcancel', onTouchEnd)
 
-const resetZoom = () => (view.value = { k: 1, x: 0, y: 0 })
+/** zoomed out: the whole map, centred */
+const resetZoom = () => (view.value = clampView(minK.value, 0, 0))
 
 /* ---------- ranking (table view of the same data) ---------- */
 
@@ -349,9 +394,12 @@ const [DefineToggles, ReuseToggles] = createReusableTemplate<{ wide?: boolean, o
 /** fullscreen: the map takes the biggest size that fits the space left of the list (no vertical scrolling) */
 const mapArea = ref<HTMLElement | null>(null)
 const mapAreaSize = useElementSize(mapArea)
+/** fullscreen: as wide as the space up to the list; a tall area (rare) keeps the whole map */
 const fullMapStyle = computed(() => ({
-  width: `${Math.min(mapAreaSize.width.value, mapAreaSize.height.value * proj.width / proj.height)}px`,
+  width: `${Math.min(mapAreaSize.width.value, mapAreaSize.height.value * proj.width / baseH.value)}px`,
 }))
+// entering/leaving fullscreen or resizing changes the band: start again from the centred, unzoomed map
+watch(baseH, resetZoom)
 </script>
 
 <template>
@@ -435,11 +483,15 @@ const fullMapStyle = computed(() => ({
               @pointerleave="onLeave"
               @pointerup="onMapTap"
             >
-              <!-- one finger scrolls the page, two fingers zoom/pan the map (touch-action: no browser pinch here) -->
+              <!--
+                one finger scrolls the page (fullscreen: pans the map), two fingers zoom/pan the map
+                (touch-action: no browser pinch here, in fullscreen no browser gestures at all)
+              -->
               <svg
                 ref="svgEl"
                 :viewBox="viewBox"
-                class="block h-auto w-full touch-pan-x touch-pan-y"
+                class="block h-auto w-full"
+                :class="full ? 'touch-none' : 'touch-pan-x touch-pan-y'"
                 role="img"
                 :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach ${mode === 'anzahl' ? 'Anzahl besuchter Brauhäuser' : 'Ø Bewertung der Brauhäuser'}`"
               >
@@ -578,7 +630,7 @@ const fullMapStyle = computed(() => ({
               </svg>
 
               <button
-                v-if="view.k > 1"
+                v-if="view.k > minK + 1e-6"
                 type="button"
                 class="absolute top-2 right-2 rounded-md border bg-background/90 px-2 py-1 text-xs shadow-sm"
                 @click="resetZoom"
