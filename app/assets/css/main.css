@@ -128,3 +128,35 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* page slide when browsing between members / Brauhäuser (see middleware/browse-slide.global.ts) */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+.slide-left-leave-to,
+.slide-right-enter-from {
+  transform: translateX(-2.5rem);
+  opacity: 0;
+}
+.slide-left-enter-from,
+.slide-right-leave-to {
+  transform: translateX(2.5rem);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-left-enter-active,
+  .slide-left-leave-active,
+  .slide-right-enter-active,
+  .slide-right-leave-active {
+    transition: opacity 120ms ease;
+  }
+  .slide-left-leave-to,
+  .slide-right-enter-from,
+  .slide-left-enter-from,
+  .slide-right-leave-to {
+    transform: none;
+  }
+}

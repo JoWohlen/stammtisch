@@ -30,8 +30,6 @@ const narrowest = computed(() => [...rows.value].filter(r => r.n >= MIN_N).sort(
 
 const describe = (r: (typeof rows.value)[number]) =>
   `${r.name}: ${r.n} Stimmen · niedrigste ${formatScore(r.min)}, mittlere Hälfte ${formatScore(r.q1)}–${formatScore(r.q3)}, Median ${formatScore(r.median)}, Ø ${formatScore(r.mean)}, höchste ${formatScore(r.max)}`
-const active = ref<string | null>(null)
-const activeRow = computed(() => rows.value.find(r => r.name === active.value) ?? null)
 </script>
 
 <template>
@@ -62,14 +60,12 @@ const activeRow = computed(() => rows.value.find(r => r.name === active.value) ?
       <ol
         class="flex flex-col gap-2.5"
         :aria-label="`${scoreKeyLabel(key)}-Stimmen je Mitglied`"
-        @pointerleave="active = null"
       >
         <li
           v-for="r in rows"
           :key="r.slug"
           class="grid grid-cols-[5.5rem_1fr] items-center gap-3 sm:grid-cols-[8rem_1fr]"
           :class="r.n < MIN_N ? 'opacity-50' : ''"
-          @pointerenter="active = r.name"
         >
           <NuxtLink
             :to="`/teilnehmer/${r.slug}`"
@@ -83,7 +79,6 @@ const activeRow = computed(() => rows.value.find(r => r.name === active.value) ?
             class="relative h-7"
             role="img"
             :aria-label="describe(r)"
-            :title="describe(r)"
           >
             <!-- grid lines at the whole notes -->
             <div
@@ -134,12 +129,6 @@ const activeRow = computed(() => rows.value.find(r => r.name === active.value) ?
         </div>
       </div>
 
-      <p
-        class="min-h-5 text-sm"
-        aria-live="polite"
-      >
-        {{ activeRow ? describe(activeRow) : 'Zeig auf eine Zeile für Details.' }}
-      </p>
       <p class="text-xs text-muted-foreground">
         Blass = weniger als {{ MIN_N }} Stimmen.
       </p>

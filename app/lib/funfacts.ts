@@ -149,10 +149,8 @@ const GENERATORS: Generator[] = [
 
   // Kurze
   ({ visits }) => {
-    const known = visits.filter(v => v.kurze != null)
-    if (!known.length) return null
-    const missing = visits.length - known.length
-    return fact('kurze-total', 'kurze', `Insgesamt haben wir mindestens ${n0(sum(known.map(v => v.kurze!)))} Kurze getrunken.${missing ? ` Bei ${missing} Abenden wurde gar nicht mitgezählt.` : ''}`)
+    if (!visits.length) return null
+    return fact('kurze-total', 'kurze', `Insgesamt haben wir ${n0(sum(visits.map(v => v.kurze)))} Kurze getrunken.`)
   },
   ({ visits }) => {
     const top = ranked(visits, v => perHead(v, v.kurze))[0]

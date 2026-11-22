@@ -16,7 +16,8 @@ export interface Visit {
   biere: number | null
   liter: number | null
   bierpreis: number | null
-  kurze: number | null
+  /** empty in the sheet = 0 */
+  kurze: number
   planer: string | null
   /** location from the "Koordinaten" column (Google Maps "lat, lng"), null if missing */
   coords: Coords | null

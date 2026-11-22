@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-dvh bg-background font-sans text-foreground antialiased">
+  <div class="min-h-dvh overflow-x-clip bg-background font-sans text-foreground antialiased">
     <NuxtRouteAnnouncer />
     <AppMenu />
     <NuxtPage />

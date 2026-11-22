@@ -95,7 +95,10 @@ function bestPlaner(visits: Visit[]): BestPlaner | null {
   return ranked[0] ?? null
 }
 
-/** Ø Gesamt of the last `months` calendar months (ending with the month of the newest visit) vs the same span before */
+/**
+ * Ø score of the last `months` calendar months (ending with the month of the newest visit overall)
+ * vs the same span before: the group's Ø Gesamt on the overview, a member's own votes on their page.
+ */
 export interface ScoreTrend {
   months: number
   aktuell: number
@@ -104,14 +107,14 @@ export interface ScoreTrend {
   richtung: 'up' | 'down' | 'flat'
 }
 
-function scoreTrend(visits: Visit[], months = 6): ScoreTrend | null {
+function scoreTrend(scores: { date: string, score: number }[], months = 6): ScoreTrend | null {
   const last = visits.at(-1)
   if (!last) return null
   const idx = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1
   const end = idx(last.date)
   const avg = (from: number, to: number) => {
-    const vs = scored(visits).filter(v => idx(v.date) > from && idx(v.date) <= to)
-    return vs.length ? mean(vs.map(v => v.averages.gesamt!)) : null
+    const xs = scores.filter(x => idx(x.date) > from && idx(x.date) <= to)
+    return xs.length ? mean(xs.map(x => x.score)) : null
   }
   const aktuell = avg(end - months, end)
   if (aktuell == null) return null
@@ -133,7 +136,7 @@ const overviewStats = {
   letzterBesuch: visits.at(-1)?.date ?? null,
   bestesBrauhaus: bestVisit(visits),
   besterPlaner: bestPlaner(visits),
-  trend: scoreTrend(visits),
+  trend: scoreTrend(scored(visits).map(v => ({ date: v.date, score: v.averages.gesamt! }))),
 }
 
 export type OverviewStats = typeof overviewStats
@@ -217,6 +220,8 @@ export interface Teilnehmer {
     biere: number
     liter: number
     kosten: number
+    /** Ø of the member's own Gesamt votes, last 6 months vs the 6 before; null without a recent vote */
+    trend: ScoreTrend | null
   }
   /** group scores of the visits this member planned; null if they never planned one */
   planer: {
@@ -261,6 +266,7 @@ function buildTeilnehmer(name: string, slug: string): Teilnehmer | null {
       biere: sum(mine.map(v => perHead(v, v.biere))),
       liter: sum(mine.map(v => perHead(v, v.liter))),
       kosten: sum(mine.map(v => perHead(v, v.rechnung))),
+      trend: scoreTrend(votes.map(x => ({ date: x.visit.date, score: x.gesamt }))),
     },
     planer: geplant.length
       ? {

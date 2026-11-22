@@ -28,6 +28,15 @@ const parse = (path: string) => {
 let fromList = false
 /** set when the detail page itself navigates to a neighbour, so the order is kept */
 let fromBrowse = false
+/** slide direction of the pending browse navigation, picked up once by the swipe middleware */
+let pendingSlide: 'left' | 'right' | null = null
+
+/** 'left' = content slides out to the left (going to "next"), consumed on read */
+export function takeBrowseSlide() {
+  const dir = pendingSlide
+  pendingSlide = null
+  return dir
+}
 
 const useOrder = () => useState<Record<BrowseKind, string[]>>('browse-order', () => ({ brauhaus: [], teilnehmer: [] }))
 
@@ -99,6 +108,7 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
   const go = (t: BrowseTarget | null) => {
     if (!t) return
     fromBrowse = true
+    pendingSlide = t.to === next.value?.to ? 'left' : 'right'
     navigateTo(t.to, { replace: true })
   }
 

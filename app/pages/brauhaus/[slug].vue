@@ -4,6 +4,9 @@ import type { Category } from '#shared/types'
 import { formatDate, formatScore } from '@/lib/format'
 import { scoreScale } from '@/lib/score-color'
 
+// key on the full path, so browsing to another visit of the same Brauhaus (?besuch=) also slides
+definePageMeta({ key: route => route.fullPath })
+
 const route = useRoute()
 const { getBrauhaus, participants, visits } = useStammtisch()
 

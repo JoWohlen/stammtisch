@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useElementSize } from '@vueuse/core'
 import { pearson, type ScoreKey, scoreKeyLabel, vote } from '@/lib/analysis'
 import { formatNumber } from '@/lib/format'
 import { memberColor } from '@/lib/members'
@@ -96,13 +95,9 @@ function standing(r: number): string {
 const full = ref(false)
 
 /**
- * Fullscreen is landscape: the grid sits left and takes the full height, the switch and details go right.
- * With the fixed fullscreen sizes below (name column 5.5rem, header row 4.5rem) a square grid is
- * about 1rem wider than tall, so the measured height sets its width.
+ * Fullscreen is landscape: the grid takes the full height and all the width the narrow side panel
+ * leaves, so the cells get wider than tall and the numbers fit.
  */
-const gridBox = useTemplateRef<HTMLElement>('gridBox')
-const { height: gridHeight } = useElementSize(gridBox)
-const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round(gridHeight.value + 16)}px` : undefined))
 </script>
 
 <template>
@@ -123,7 +118,7 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
       </CardHeader>
 
       <CardContent
-        :class="full ? 'grid min-h-0 flex-1 grid-cols-[auto_minmax(13rem,1fr)] grid-rows-[minmax(0,1fr)] gap-4' : 'flex flex-col gap-4'"
+        :class="full ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(12rem,15rem)] grid-rows-[minmax(0,1fr)] gap-4' : 'flex flex-col gap-4'"
       >
         <ScoreKeyTabs
           v-if="!full"
@@ -139,15 +134,11 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
         </p>
 
         <!-- normal: fixed columns that fit a phone; numbers in the cells from sm on, on phones tap a cell.
-             fullscreen: fixed sizes (a turned phone still matches the portrait breakpoints), width from the height -->
-        <div
-          ref="gridBox"
-          :class="full && 'h-full min-h-0 overflow-hidden'"
-        >
+             fullscreen: fixed sizes (a turned phone still matches the portrait breakpoints), fills the space left of the panel -->
+        <div :class="full && 'h-full min-h-0 overflow-hidden pl-2'">
           <table
             class="table-fixed border-separate tabular-nums"
-            :class="full ? 'border-spacing-0.5 text-[11px]' : 'w-full border-spacing-px text-[10px] sm:border-spacing-0.5 sm:text-xs'"
-            :style="full ? { width: gridWidth } : undefined"
+            :class="full ? 'h-full w-full border-spacing-0.5 text-[11px]' : 'w-full border-spacing-px text-[10px] sm:border-spacing-0.5 sm:text-xs'"
             :aria-label="`Ähnlichkeit der ${scoreKeyLabel(key)}-Bewertungen zwischen allen Mitgliedern`"
             @pointerleave="active = null"
           >
@@ -207,8 +198,9 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
                 <td
                   v-for="(c, j) in matrix[i]"
                   :key="j"
-                  class="aspect-square rounded-sm p-0 text-center"
+                  class="rounded-sm p-0 text-center"
                   :class="[
+                    full ? '' : 'aspect-square',
                     c.self ? 'bg-muted/40' : cellText(c.r),
                     active && active.i === i && active.j === j && !c.self ? 'ring-2 ring-foreground' : '',
                   ]"
@@ -235,10 +227,6 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
 
         <!-- fullscreen: everything else in a side panel next to the grid -->
         <div :class="full ? 'flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto' : 'contents'">
-          <ScoreKeyTabs
-            v-if="full"
-            v-model="key"
-          />
           <p
             v-if="full && twins && strangers"
             class="text-sm"
@@ -281,6 +269,11 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
             </div>
             <span>dunkel = am wenigsten ähnlich, gelb = am ähnlichsten · „·“ = weniger als {{ MIN_SHARED }} gemeinsame Abende</span>
           </div>
+
+          <ScoreKeyTabs
+            v-if="full"
+            v-model="key"
+          />
         </div>
       </CardContent>
     </Card>

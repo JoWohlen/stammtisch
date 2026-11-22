@@ -197,7 +197,8 @@ function main() {
       biere: num(r[c.biere]),
       liter: num(r[c.liter]),
       bierpreis: num(r[c.bierpreis]),
-      kurze: num(r[c.kurze]),
+      // an empty Kurze field means none were drunk
+      kurze: num(r[c.kurze]) ?? 0,
       planer: person(r[c.planer]),
       coords: point,
       lage: lage(point),

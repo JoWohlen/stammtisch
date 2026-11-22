@@ -24,7 +24,18 @@ const tiles = [
   { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, prefix: '≈ ', suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
   { label: 'Ausgaben', icon: Wallet, value: fitForms(s.kosten, { prefix: '≈ ', suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
   { label: 'Geplant', icon: Crown, value: formatNumber(p?.besuche ?? 0), sub: `von ${s.besucheSeitStart} Abenden` },
+  // like "Ø Bewertung" on the overview, but the member's own votes
+  ...(s.trend
+    ? [{
+        label: 'Ø eigene Note',
+        value: formatScore(s.trend.aktuell),
+        sub: `letzte ${s.trend.months} Monate`,
+        trend: s.trend.vorher != null ? s.trend.richtung : undefined,
+      }]
+    : []),
 ]
+/** two columns on phones: an odd number of slots lets the last tile fill the row */
+const fillLast = ((spaeterDabei ? 2 : 1) + tiles.length) % 2 === 1
 
 const categories = p
   ? [
@@ -52,7 +63,7 @@ const planned = computed(() => {
     </CardHeader>
 
     <CardContent class="flex flex-col gap-6">
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <!-- with the two rate lines the tile spans 2 columns below lg, so the lines never wrap -->
         <StatTile
           label="Besuche"
@@ -70,7 +81,7 @@ const planned = computed(() => {
           v-for="(t, i) in tiles"
           :key="t.label"
           v-bind="t"
-          :class="!spaeterDabei && i === tiles.length - 1 ? 'col-span-2 sm:col-span-1' : ''"
+          :class="fillLast && i === tiles.length - 1 ? 'col-span-2 sm:col-span-1' : ''"
         />
       </div>
 
