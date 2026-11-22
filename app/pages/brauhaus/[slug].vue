@@ -2,9 +2,13 @@
 import { Handshake, MapPin, Utensils } from '@lucide/vue'
 import type { Category } from '#shared/types'
 import { formatDate, formatScore } from '@/lib/format'
+import { scoreScale } from '@/lib/score-color'
 
 const route = useRoute()
-const { getBrauhaus, participants } = useStammtisch()
+const { getBrauhaus, participants, visits } = useStammtisch()
+
+/** same red → amber → green ramp over all visits as the tiles on the overview */
+const scale = scoreScale(visits.map(v => v.averages.gesamt))
 
 const brauhaus = getBrauhaus(String(route.params.slug))
 if (!brauhaus) {
@@ -17,11 +21,16 @@ useHead({ title: `${brauhaus.name} · Stammtisch-Tracker` })
 const selected = ref('0')
 
 /** ?besuch=<nr> opens that visit's tab (after hydration, so the prerendered HTML still matches) */
-onMounted(() => {
+const fromQuery = () => {
   const i = brauhaus.visits.findIndex(v => String(v.nr) === String(route.query.besuch))
-  if (i > 0) selected.value = String(i)
-})
+  selected.value = String(Math.max(i, 0))
+}
+onMounted(fromQuery)
+// swiping between two visits of the same Brauhaus only changes the query
+watch(() => route.query.besuch, fromQuery)
 const visit = computed(() => brauhaus.visits[Number(selected.value)]!)
+
+const browse = useBrowse('brauhaus', computed(() => ({ slug: brauhaus.slug, nr: visit.value.nr })))
 const compare = computed(() => brauhaus.visits[Number(selected.value) + 1] ?? null)
 /** selector tabs oldest → newest, so the newest date sits on the right */
 const visitTabs = brauhaus.visits.map((v, i) => ({ v, i })).reverse()
@@ -44,9 +53,22 @@ const raters = computed(() => {
     :title="brauhaus.name"
     back
   >
+    <template #nav>
+      <BrowseNav
+        v-bind="{ prev: browse.prev.value, next: browse.next.value, counter: browse.counter.value }"
+        @go="browse.go"
+      />
+    </template>
+    <template #title>
+      <FitText :text="brauhaus.name" />
+    </template>
     <template #actions>
-      <Badge class="border-amber-300 bg-amber-100 px-3 py-1 text-base text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200">
-        Gesamt {{ formatScore(visit.averages.gesamt) }} / 5
+      <Badge
+        class="shrink-0 px-3 py-1 text-base tabular-nums"
+        :class="visit.averages.gesamt != null && scale ? 'border-transparent text-black' : 'bg-muted text-muted-foreground'"
+        :style="visit.averages.gesamt != null && scale ? { backgroundColor: scale.color(visit.averages.gesamt) } : undefined"
+      >
+        <span class="max-sm:hidden">Gesamt</span> {{ formatScore(visit.averages.gesamt) }} / 5
       </Badge>
     </template>
     <template #header>

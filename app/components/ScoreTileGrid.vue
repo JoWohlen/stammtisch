@@ -55,6 +55,9 @@ const podium = computed(() => {
   return places
 })
 
+/** clicking a tile remembers the order shown, so the detail page can swipe through it */
+const rememberOrder = useBrowseList()
+
 const items = computed(() => {
   const m = metric.value
   const val = (t: ScoreTile) => t.scores[m] ?? -Infinity
@@ -168,6 +171,7 @@ const items = computed(() => {
                 class="flex h-full items-center gap-4 rounded-lg border p-3 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="t.scored ? 'border-transparent text-black' : 'text-foreground'"
                 :style="{ backgroundColor: t.bg }"
+                @click="rememberOrder(items.map(x => x.to))"
               >
                 <span class="flex min-w-0 flex-1 flex-col gap-1">
                   <span

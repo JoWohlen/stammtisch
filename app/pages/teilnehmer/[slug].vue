@@ -13,6 +13,8 @@ if (!teilnehmer) {
 useHead({ title: `${teilnehmer.name} · Stammtisch-Tracker` })
 
 const awards = getMemberAwards(teilnehmer.name)
+
+const browse = useBrowse('teilnehmer', computed(() => ({ slug: teilnehmer.slug })))
 </script>
 
 <template>
@@ -21,6 +23,12 @@ const awards = getMemberAwards(teilnehmer.name)
     :description="`Seit ${formatDate(teilnehmer.stats.ersterBesuch)} dabei`"
     back
   >
+    <template #nav>
+      <BrowseNav
+        v-bind="{ prev: browse.prev.value, next: browse.next.value, counter: browse.counter.value }"
+        @go="browse.go"
+      />
+    </template>
     <template #title>
       <span
         class="size-4 shrink-0 rounded-full"
