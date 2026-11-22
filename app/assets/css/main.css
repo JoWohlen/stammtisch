@@ -134,7 +134,7 @@
 .slide-left-leave-active,
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 160ms ease, opacity 160ms ease;
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
 }
 .slide-left-leave-to,
 .slide-right-enter-from {

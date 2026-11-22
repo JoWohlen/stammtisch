@@ -3,14 +3,19 @@ import { SCORE_KEYS, type ScoreKey } from '@/lib/analysis'
 
 /** The Gesamt / Location / Service / Essen switch shared by the analysis cards. */
 const model = defineModel<ScoreKey>({ required: true })
+/** span the full width (the four options share it) instead of hugging the left */
+defineProps<{ stretch?: boolean }>()
 </script>
 
 <template>
   <Tabs
     v-model="model"
-    class="self-start"
+    :class="stretch ? 'w-full' : 'self-start'"
   >
-    <TabsList aria-label="Kategorie">
+    <TabsList
+      aria-label="Kategorie"
+      :class="stretch && 'w-full'"
+    >
       <TabsTrigger
         v-for="c in SCORE_KEYS"
         :key="c.key"

@@ -54,7 +54,7 @@ const fmt = (n: number) => `± ${formatNumber(n, 2)}`
           Ein Balken pro Besuch: nach oben = einiger als sonst, nach unten = uneiniger.
         </CardDescription>
         <CardAction class="flex items-center gap-2">
-          <ScoreKeyTabs
+          <AnalyseScoreKeyTabs
             v-if="full"
             v-model="key"
           />
@@ -66,7 +66,7 @@ const fmt = (n: number) => `± ${formatNumber(n, 2)}`
         class="flex flex-col gap-4"
         :class="full && 'min-h-0 flex-1'"
       >
-        <ScoreKeyTabs
+        <AnalyseScoreKeyTabs
           v-if="!full"
           v-model="key"
         />

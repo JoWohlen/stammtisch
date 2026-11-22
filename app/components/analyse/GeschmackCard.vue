@@ -120,7 +120,7 @@ const full = ref(false)
       <CardContent
         :class="full ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(12rem,15rem)] grid-rows-[minmax(0,1fr)] gap-4' : 'flex flex-col gap-4'"
       >
-        <ScoreKeyTabs
+        <AnalyseScoreKeyTabs
           v-if="!full"
           v-model="key"
         />
@@ -270,7 +270,7 @@ const full = ref(false)
             <span>dunkel = am wenigsten ähnlich, gelb = am ähnlichsten · „·“ = weniger als {{ MIN_SHARED }} gemeinsame Abende</span>
           </div>
 
-          <ScoreKeyTabs
+          <AnalyseScoreKeyTabs
             v-if="full"
             v-model="key"
           />

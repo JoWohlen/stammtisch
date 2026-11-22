@@ -45,7 +45,7 @@ const describe = (r: (typeof rows.value)[number]) =>
     </CardHeader>
 
     <CardContent class="flex flex-col gap-4">
-      <ScoreKeyTabs v-model="key" />
+      <AnalyseScoreKeyTabs v-model="key" />
 
       <p
         v-if="widest && narrowest && widest !== narrowest"

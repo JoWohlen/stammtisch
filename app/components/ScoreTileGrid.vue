@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, Crown, Repeat2, Trophy } from '@lucide/vue'
 import type { Metric, ScoreTile } from '@/lib/score-tiles'
+import { SCORE_KEYS } from '@/lib/analysis'
 import { formatDate, formatScore } from '@/lib/format'
 import { rampGradient, scoreScale } from '@/lib/score-color'
 
@@ -9,12 +10,14 @@ type Sort = Metric | 'datum'
 const props = withDefaults(defineProps<{
   title: string
   tiles: ScoreTile[]
-  /** description start, e.g. "40 Brauhäuser" */
-  count: string
+  /** description start, e.g. "40 Brauhäuser"; a function gets the shown metric, so the text can follow the sort */
+  count: string | ((metric: Metric) => string)
   /** description when collapsed */
   collapsedText?: string
   /** whether the card can be folded (default true) */
   collapsible?: boolean
+  /** details line shows all four scores with icons: date · the sorted metric (bold) · the other three */
+  scoreLine?: boolean
 }>(), { collapsible: true })
 
 const SORTS: { key: Sort, label: string }[] = [
@@ -30,6 +33,11 @@ const sort = ref<Sort>('gesamt')
 
 /** the value shown and coloured; sorting by date keeps Ø Gesamt */
 const metric = computed<Metric>(() => (sort.value === 'datum' ? 'gesamt' : sort.value))
+
+const countText = computed(() => (typeof props.count === 'function' ? props.count(metric.value) : props.count))
+
+/** for `scoreLine`: the shown metric first, then the rest in the usual order */
+const scoreOrder = computed(() => [...SCORE_KEYS].sort((a, b) => Number(b.key === metric.value) - Number(a.key === metric.value)))
 
 /** red (worst) → amber (Ø) → green (best) over the shown metric */
 const scale = computed(() => scoreScale(props.tiles.map(t => t.scores[metric.value])))
@@ -90,8 +98,9 @@ const items = computed(() => {
         <CardTitle class="text-2xl">
           {{ title }}
         </CardTitle>
-        <CardDescription>
-          {{ count }} · Farbe = gewählte Sortierung
+        <!-- pre-line: a "\n" in the text starts a second line -->
+        <CardDescription class="whitespace-pre-line">
+          {{ countText }}
         </CardDescription>
       </CardHeader>
       <CardHeader v-else>
@@ -105,12 +114,8 @@ const items = computed(() => {
                 {{ title }}
               </CardTitle>
               <CardDescription>
-                {{ count }} ·
-                <template v-if="open || !collapsedText">
-                  Farbe = gewählte Sortierung
-                </template>
-                <template v-else>
-                  {{ collapsedText }}
+                {{ countText }}<template v-if="!open && collapsedText">
+                  · {{ collapsedText }}
                 </template>
               </CardDescription>
             </span>
@@ -129,10 +134,14 @@ const items = computed(() => {
       <CollapsibleContent>
         <CardContent class="flex flex-col gap-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex flex-wrap items-center gap-2">
+            <!-- phones: the sort switch spans the card, left to right -->
+            <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               <span class="hidden text-sm text-muted-foreground sm:inline">Sortieren nach</span>
-              <Tabs v-model="sort">
-                <TabsList>
+              <Tabs
+                v-model="sort"
+                class="w-full sm:w-auto"
+              >
+                <TabsList class="w-full sm:w-auto">
                   <TabsTrigger
                     v-for="s in SORTS"
                     :key="s.key"
@@ -228,6 +237,24 @@ const items = computed(() => {
                     :class="t.scored ? 'font-medium text-black/85' : 'text-muted-foreground'"
                   >
                     <span>{{ formatDate(t.date) }}</span>
+                    <template
+                      v-for="s in scoreLine ? scoreOrder : []"
+                      :key="s.key"
+                    >
+                      <span aria-hidden="true">·</span>
+                      <span
+                        class="inline-flex items-center gap-0.5 tabular-nums"
+                        :class="s.key === metric && 'font-bold'"
+                        :title="s.label"
+                      >
+                        <component
+                          :is="s.icon"
+                          class="size-3"
+                          :aria-label="s.label"
+                        />
+                        {{ formatScore(t.scores[s.key]) }}
+                      </span>
+                    </template>
                     <template
                       v-for="d in t.details"
                       :key="d"

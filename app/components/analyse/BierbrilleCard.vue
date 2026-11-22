@@ -59,7 +59,7 @@ const full = ref(false)
           Liter Bier pro Kopf gegen die Ø Bewertung der Runde, die gestrichelte Linie ist der Trend.
         </CardDescription>
         <CardAction class="flex items-center gap-2">
-          <ScoreKeyTabs
+          <AnalyseScoreKeyTabs
             v-if="full"
             v-model="key"
           />
@@ -71,7 +71,7 @@ const full = ref(false)
         class="flex flex-col gap-4"
         :class="full && 'min-h-0 flex-1'"
       >
-        <ScoreKeyTabs
+        <AnalyseScoreKeyTabs
           v-if="!full"
           v-model="key"
         />

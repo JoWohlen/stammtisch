@@ -3,7 +3,7 @@ import { Handshake, MapPin, Star, Utensils } from '@lucide/vue'
 import type { Category, Visit } from '#shared/types'
 import { CATEGORIES, mean, raterNames } from '@/lib/stats'
 
-/** Gesamt or one of the three categories, as switched by <ScoreKeyTabs> */
+/** Gesamt or one of the three categories, as switched by <AnalyseScoreKeyTabs> */
 export type ScoreKey = Category | 'gesamt'
 
 export const SCORE_KEYS: { key: ScoreKey, label: string, short: string, icon: Component }[] = [

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type ScoreKey, scoreKeyLabel, vote, votes } from '@/lib/analysis'
+import { SCORE_KEYS, type ScoreKey, scoreKeyLabel, vote, votes } from '@/lib/analysis'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate, formatScore } from '@/lib/format'
 import { mean } from '@/lib/stats'
@@ -27,16 +27,11 @@ const bars = computed<DeviationBar[]>(() => rows.value.map(r => ({
 })))
 const avg = computed(() => mean(bars.value.map(b => b.value)))
 
-/** first vs second half of the member's evenings */
-const trend = computed(() => {
-  const xs = bars.value.map(b => b.value)
-  if (xs.length < 6) return null
-  const half = Math.floor(xs.length / 2)
-  const before = mean(xs.slice(0, half))
-  const after = mean(xs.slice(half))
-  const d = after - before
-  return { before, after, word: Math.abs(d) < 0.05 ? 'gleich geblieben' : d > 0 ? 'milder geworden' : 'strenger geworden' }
-})
+/** the member's own votes in all four categories (fixed order), for the tooltip and the tap row; the chosen one is highlighted */
+const allScores = (nr: number) => {
+  const v = byNr.value.get(nr)?.v
+  return v ? SCORE_KEYS.map(s => ({ ...s, x: vote(v, props.teilnehmer.name, s.key), selected: s.key === key.value })) : []
+}
 
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScore(Math.abs(n))}`
 </script>
@@ -53,7 +48,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
           Abstand zum eigenen Ø: besser nach oben, schlechter nach unten
         </CardDescription>
         <CardAction class="flex items-center gap-2">
-          <ScoreKeyTabs
+          <AnalyseScoreKeyTabs
             v-if="full"
             v-model="key"
           />
@@ -65,18 +60,11 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
         class="flex flex-col gap-4"
         :class="full && 'min-h-0 flex-1'"
       >
-        <ScoreKeyTabs
+        <AnalyseScoreKeyTabs
           v-if="!full"
           v-model="key"
+          stretch
         />
-
-        <p
-          v-if="trend && !full"
-          class="text-sm"
-        >
-          In der ersten Hälfte Ø {{ formatScore(trend.before) }}, in der zweiten Ø {{ formatScore(trend.after) }}:
-          {{ teilnehmer.name }} ist <span class="font-semibold">{{ trend.word }}</span>.
-        </p>
 
         <p
           v-if="!bars.length"
@@ -91,6 +79,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
           higher-is-better
           :format="formatScore"
           :full="full"
+          row-hide-value
           :label="`${scoreKeyLabel(key)}-Stimmen von ${teilnehmer.name} an ${bars.length} Abenden im Vergleich zum eigenen Ø`"
         >
           <template #tooltip="{ bar }">
@@ -103,12 +92,49 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
             <div class="mt-1 tabular-nums">
               Eigene Stimme {{ formatScore(bar.value) }}
             </div>
+            <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+              <span
+                v-for="s in allScores(bar.id)"
+                :key="s.key"
+                class="inline-flex items-center gap-0.5"
+                :class="s.selected && 'font-semibold text-foreground'"
+                :title="s.label"
+              >
+                <component
+                  :is="s.icon"
+                  class="size-3"
+                  :aria-label="s.label"
+                />
+                {{ formatScore(s.x) }}
+              </span>
+            </div>
             <div
               v-if="byNr.get(bar.id)?.others != null"
               class="text-xs text-muted-foreground tabular-nums"
             >
               Rest der Runde Ø {{ formatScore(byNr.get(bar.id)!.others!) }} ({{ signed(bar.value - byNr.get(bar.id)!.others!) }})
             </div>
+          </template>
+          <!-- tap row (phones, fullscreen): date · Gesamt · Location · Service · Essen, the chosen tab's score highlighted.
+               The outer span carries the "·" separator. -->
+          <template #row="{ bar }">
+            <span>{{ formatDate(bar.date) }}</span>
+            <span
+              v-for="s in allScores(bar.id)"
+              :key="s.key"
+            >
+              <span
+                class="inline-flex items-center gap-0.5"
+                :class="s.selected && 'font-semibold text-foreground'"
+              >
+                <component
+                  :is="s.icon"
+                  class="size-3"
+                  :aria-label="s.label"
+                />
+                {{ formatScore(s.x) }}
+              </span>
+            </span>
           </template>
         </AnalyseDeviationBarChart>
       </CardContent>

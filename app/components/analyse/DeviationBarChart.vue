@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useElementSize, useScroll } from '@vueuse/core'
-import { ArrowRight, ThumbsDown, Trophy } from '@lucide/vue'
+import { ThumbsDown, Trophy } from '@lucide/vue'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate } from '@/lib/format'
 import { rampColor } from '@/lib/score-color'
@@ -381,10 +381,6 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
             >{{ format(activeItem.bar.value) }}</span>
           </span>
         </span>
-        <ArrowRight
-          class="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        />
       </NuxtLink>
     </div>
     <p
