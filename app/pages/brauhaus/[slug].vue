@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Handshake, MapPin, Utensils } from '@lucide/vue'
+import { Handshake, MapPin, Utensils } from '@lucide/vue'
 import type { Category } from '#shared/types'
 import { formatDate, formatScore } from '@/lib/format'
 
@@ -40,25 +40,20 @@ const raters = computed(() => {
 </script>
 
 <template>
-  <main class="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-    <header class="flex flex-col gap-3">
-      <NuxtLink
-        to="/"
-        class="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft class="size-4" /> Übersicht
-      </NuxtLink>
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-3xl font-semibold tracking-tight">
-          {{ brauhaus.name }}
-        </h1>
-        <Badge class="border-amber-300 bg-amber-100 px-3 py-1 text-base text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200">
-          Gesamt {{ formatScore(visit.averages.gesamt) }} / 5
-        </Badge>
-      </div>
+  <AppPage
+    :title="brauhaus.name"
+    back
+  >
+    <template #actions>
+      <Badge class="border-amber-300 bg-amber-100 px-3 py-1 text-base text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200">
+        Gesamt {{ formatScore(visit.averages.gesamt) }} / 5
+      </Badge>
+    </template>
+    <template #header>
       <Tabs
         v-if="brauhaus.visits.length > 1"
         v-model="selected"
+        class="mt-2"
       >
         <TabsList>
           <TabsTrigger
@@ -71,7 +66,7 @@ const raters = computed(() => {
           </TabsTrigger>
         </TabsList>
       </Tabs>
-    </header>
+    </template>
 
     <BrauhausVisitInfoCard :visit="visit" />
 
@@ -101,5 +96,5 @@ const raters = computed(() => {
     />
 
     <BrauhausNachbarnLegend :slug="brauhaus.slug" />
-  </main>
+  </AppPage>
 </template>

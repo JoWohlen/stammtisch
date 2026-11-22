@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Beer, CalendarDays, ChartLine, ChevronRight, Crown, GlassWater, Handshake, MapPin, ScrollText, Search, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
+import { Beer, CalendarDays, Crown, GlassWater, Handshake, MapPin, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const { overviewStats: s, participants, getTeilnehmer } = useStammtisch()
@@ -45,49 +45,6 @@ const categories = b
       <CardTitle class="text-xl whitespace-nowrap sm:text-2xl">
         Auf einen Blick
       </CardTitle>
-      <CardDescription
-        v-if="s.ersterBesuch && s.letzterBesuch"
-        class="max-sm:col-start-1"
-      >
-        {{ formatDate(s.ersterBesuch) }} – {{ formatDate(s.letzterBesuch) }}<span class="max-sm:hidden"> · </span>
-        <span class="max-sm:block">{{ s.besuche }} Stammtische</span>
-      </CardDescription>
-      <CardAction class="flex flex-wrap justify-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:grid max-sm:grid-cols-3 max-sm:justify-self-stretch">
-        <NuxtLink
-          to="/suche"
-          class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 max-sm:gap-1.5 max-sm:px-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-        >
-          <Search
-            class="size-4"
-            aria-hidden="true"
-          />
-          Suche
-        </NuxtLink>
-        <NuxtLink
-          to="/satzung"
-          class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 max-sm:gap-1.5 max-sm:px-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-        >
-          <ScrollText
-            class="size-4"
-            aria-hidden="true"
-          />
-          Satzung
-        </NuxtLink>
-        <NuxtLink
-          to="/analyse"
-          class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 max-sm:gap-1.5 max-sm:px-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-        >
-          <ChartLine
-            class="size-4"
-            aria-hidden="true"
-          />
-          Analyse
-          <ChevronRight
-            class="size-4 max-sm:hidden"
-            aria-hidden="true"
-          />
-        </NuxtLink>
-      </CardAction>
     </CardHeader>
 
     <CardContent class="flex flex-col gap-6">

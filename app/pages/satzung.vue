@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Gavel } from '@lucide/vue'
+import { Gavel } from '@lucide/vue'
 import { formatDate } from '@/lib/format'
 
 useHead({ title: 'Satzung · Stammtisch-Tracker' })
@@ -43,22 +43,10 @@ const cards = BESCHLUESSE.reduce<{ date: string, regeln: { nr: number, text: str
 </script>
 
 <template>
-  <main class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-    <header class="flex flex-col gap-3">
-      <NuxtLink
-        to="/"
-        class="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft class="size-4" /> Übersicht
-      </NuxtLink>
-      <h1 class="text-3xl font-semibold tracking-tight">
-        Satzung
-      </h1>
-      <p class="text-sm text-muted-foreground">
-        Die Regeln unseres Stammtischs
-      </p>
-    </header>
-
+  <AppPage
+    title="Satzung"
+    description="Die Regeln unseres Stammtischs"
+  >
     <Card
       v-for="c in cards"
       :key="c.date"
@@ -90,5 +78,5 @@ const cards = BESCHLUESSE.reduce<{ date: string, regeln: { nr: number, text: str
         </ol>
       </CardContent>
     </Card>
-  </main>
+  </AppPage>
 </template>

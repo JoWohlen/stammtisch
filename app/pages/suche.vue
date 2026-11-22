@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Beer, Handshake, MapPin, RotateCcw, Utensils, Wallet } from '@lucide/vue'
+import { Beer, Handshake, MapPin, RotateCcw, Utensils, Wallet } from '@lucide/vue'
 import type { Category } from '#shared/types'
 import type { ScoreTile } from '@/lib/score-tiles'
 import { formatEuro, formatNumber } from '@/lib/format'
@@ -109,22 +109,10 @@ const tiles = computed<ScoreTile[]>(() => results.value.map(r => ({
 </script>
 
 <template>
-  <main class="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-    <header class="flex flex-col gap-3">
-      <NuxtLink
-        to="/"
-        class="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft class="size-4" /> Übersicht
-      </NuxtLink>
-      <h1 class="text-3xl font-semibold tracking-tight">
-        Suche
-      </h1>
-      <p class="text-sm text-muted-foreground">
-        Brauhaus nach Bewertung, Bierpreis, Bier und Stadtbezirk finden
-      </p>
-    </header>
-
+  <AppPage
+    title="Suche"
+    description="Brauhaus nach Bewertung, Bierpreis, Bier und Stadtbezirk finden"
+  >
     <Card>
       <CardHeader>
         <CardTitle>Filter</CardTitle>
@@ -244,5 +232,5 @@ const tiles = computed<ScoreTile[]>(() => results.value.map(r => ({
         Kein Brauhaus passt zu diesen Filtern.
       </p>
     </section>
-  </main>
+  </AppPage>
 </template>

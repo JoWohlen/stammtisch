@@ -490,7 +490,7 @@ watch(baseH, resetZoom)
               <svg
                 ref="svgEl"
                 :viewBox="viewBox"
-                class="block h-auto w-full"
+                class="block h-auto w-full select-none [-webkit-touch-callout:none]"
                 :class="full ? 'touch-none' : 'touch-pan-x touch-pan-y'"
                 role="img"
                 :aria-label="`Karte der Kölner ${level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke'} nach ${mode === 'anzahl' ? 'Anzahl besuchter Brauhäuser' : 'Ø Bewertung der Brauhäuser'}`"
@@ -759,9 +759,10 @@ watch(baseH, resetZoom)
             Noch keine Brauhäuser mit Koordinaten in Köln. Trag sie in der Spalte „Koordinaten“ im Blatt
             „General“ ein (aus Google Maps kopiert, z. B. <span class="tabular-nums">50.93836, 6.95995</span>).
           </p>
+          <!-- tappable rows: no text selection / iOS callout when tapping a name on mobile -->
           <ol
             v-else
-            class="flex flex-col gap-1.5 text-sm"
+            class="flex flex-col gap-1.5 text-sm select-none [-webkit-touch-callout:none]"
           >
             <li
               v-for="a in ranking"

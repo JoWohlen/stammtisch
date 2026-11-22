@@ -26,6 +26,11 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'de' },
       title: 'Stammtisch-Tracker',
       meta: [{ name: 'robots', content: 'noindex, nofollow' }],
+      // apply the saved theme before first paint so dark mode doesn't flash white
+      script: [{
+        innerHTML: `try{var m=localStorage.getItem('stammtisch-theme');if(m==='dark'||((!m||m==='auto')&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`,
+        tagPosition: 'head',
+      }],
     },
   },
   css: ['~/assets/css/main.css'],
