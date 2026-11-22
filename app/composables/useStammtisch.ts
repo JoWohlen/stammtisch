@@ -1,6 +1,6 @@
 import type { Category, Coords, Lage, StammtischData, Visit } from '#shared/types'
 import raw from '../../data/stammtisch.json'
-import { computeAwards, type Award } from '@/lib/awards'
+import { AWARD_DEFS, computeAwards, computeMemberAwards, type Award } from '@/lib/awards'
 import { computeFunFacts } from '@/lib/funfacts'
 import { distance } from '@/lib/geo'
 import { CATEGORIES, groupBy, heads, mean, sum } from '@/lib/stats'
@@ -286,6 +286,42 @@ const getTeilnehmer = (slug: string): Teilnehmer | null => teilnehmer.get(slug) 
 
 const awards = computeAwards(visits, data.participants)
 const getAwards = (v: Visit): Award[] => awards.get(v.nr) ?? []
+const memberAwards = computeMemberAwards(visits, data.participants)
+const getMemberAwards = (name: string): Award[] => memberAwards.get(name) ?? []
+
+/** one place an award was handed out, for the list on /awards */
+export interface AwardMention {
+  key: string
+  /** Brauhaus or member name */
+  title: string
+  to: string
+  /** ISO date of the visit (Brauhaus awards only) */
+  date?: string
+  /** specific label when it differs from the award's name, e.g. "Lisa wird Mitglied" */
+  note?: string
+  detail?: string
+}
+
+/** award type → every mention, newest visit first / participant order */
+const awardMentions = new Map<string, AwardMention[]>(AWARD_DEFS.map(d => [d.type, []]))
+for (const v of [...visits].sort((a, b) => b.date.localeCompare(a.date) || b.nr - a.nr)) {
+  for (const a of getAwards(v)) {
+    awardMentions.get(a.type)!.push({
+      key: `${v.nr}-${a.key}`,
+      title: v.brauhaus,
+      to: `/brauhaus/${v.slug}?besuch=${v.nr}`,
+      date: v.date,
+      note: a.label !== AWARD_DEFS.find(d => d.type === a.type)!.label ? a.label : undefined,
+      detail: a.detail,
+    })
+  }
+}
+for (const p of data.participants) {
+  for (const a of getMemberAwards(p.name)) {
+    awardMentions.get(a.type)!.push({ key: a.key, title: p.name, to: `/teilnehmer/${p.slug}`, detail: a.detail })
+  }
+}
+const getAwardMentions = (type: string): AwardMention[] => awardMentions.get(type) ?? []
 
 const funFacts = computeFunFacts(visits, data.participants)
 
@@ -298,5 +334,5 @@ const memberPath = (name: string | null | undefined): string | null => {
 }
 
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, brauhaeuser: [...brauhaeuser.values()], getBrauhaus, getNachbarn, getTeilnehmer, getAwards, funFacts, memberPath }
+  return { visits, participants: data.participants, overviewStats, brauhausRanking, brauhaeuser: [...brauhaeuser.values()], getBrauhaus, getNachbarn, getTeilnehmer, getAwards, getMemberAwards, getAwardMentions, funFacts, memberPath }
 }

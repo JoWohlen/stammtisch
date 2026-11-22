@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Beer, ChartLine, ChevronDown, House, Menu, Moon, ScrollText, Search, Settings, X } from '@lucide/vue'
+import { Award, Beer, ChartLine, ChevronDown, House, Menu, Moon, ScrollText, Search, Settings, X } from '@lucide/vue'
 import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
 
 const pages = [
@@ -7,6 +7,7 @@ const pages = [
   { to: '/suche', label: 'Suche', icon: Search },
   { to: '/satzung', label: 'Satzung', icon: ScrollText },
   { to: '/analyse', label: 'Analyse', icon: ChartLine },
+  { to: '/awards', label: 'Awards', icon: Award },
 ]
 
 const open = ref(false)

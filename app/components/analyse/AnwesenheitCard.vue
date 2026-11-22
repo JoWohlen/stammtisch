@@ -76,7 +76,7 @@ const full = ref(false)
       <CardContent class="flex flex-col">
         <Tabs
           v-model="basis"
-          class="mb-3 self-end"
+          class="mb-3 self-start"
         >
           <TabsList aria-label="Anwesenheit zählen">
             <TabsTrigger

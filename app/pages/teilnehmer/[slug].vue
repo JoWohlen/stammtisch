@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { formatDate } from '@/lib/format'
 import { memberColor } from '@/lib/members'
 
 const route = useRoute()
-const { getTeilnehmer } = useStammtisch()
+const { getTeilnehmer, getMemberAwards } = useStammtisch()
 
 const teilnehmer = getTeilnehmer(String(route.params.slug))
 if (!teilnehmer) {
@@ -10,11 +11,14 @@ if (!teilnehmer) {
 }
 
 useHead({ title: `${teilnehmer.name} · Stammtisch-Tracker` })
+
+const awards = getMemberAwards(teilnehmer.name)
 </script>
 
 <template>
   <AppPage
     :title="teilnehmer.name"
+    :description="`Seit ${formatDate(teilnehmer.stats.ersterBesuch)} dabei`"
     back
   >
     <template #title>
@@ -24,6 +28,18 @@ useHead({ title: `${teilnehmer.name} · Stammtisch-Tracker` })
         aria-hidden="true"
       />
       {{ teilnehmer.name }}
+    </template>
+    <template
+      v-if="awards.length"
+      #header
+    >
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <AwardBadge
+          v-for="a in awards"
+          :key="a.key"
+          :award="a"
+        />
+      </div>
     </template>
 
     <TeilnehmerBilanzCard :teilnehmer="teilnehmer" />

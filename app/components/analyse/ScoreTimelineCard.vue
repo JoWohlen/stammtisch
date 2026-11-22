@@ -86,7 +86,7 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
       >
         <div
           v-if="!full"
-          class="flex flex-wrap items-center justify-between gap-3"
+          class="flex flex-wrap items-center justify-start gap-3"
         >
           <ReuseTabs />
         </div>

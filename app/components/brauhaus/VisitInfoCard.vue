@@ -8,11 +8,6 @@ const props = defineProps<{ visit: Visit }>()
 const { getAwards, memberPath } = useStammtisch()
 
 const awards = computed(() => getAwards(props.visit))
-const TONE = {
-  good: 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200',
-  bad: 'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200',
-  neutral: 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200',
-}
 
 const EURO: FitOptions = { digits: 2, suffix: '\u00A0€' }
 const dash = (n: number | null, opts?: FitOptions): string | string[] => (n == null ? '–' : fitForms(n, opts))
@@ -73,24 +68,11 @@ const tiles = computed(() => {
         <Badge variant="outline">
           <Star /> {{ raters }} Bewertungen · Ø {{ formatScore(visit.averages.gesamt) }}
         </Badge>
-        <Badge
+        <AwardBadge
           v-for="a in awards"
           :key="a.key"
-          variant="outline"
-          :class="TONE[a.tone]"
-          :title="a.hint"
-          :as-child="!!memberPath(a.member)"
-        >
-          <NuxtLink
-            v-if="memberPath(a.member)"
-            :to="memberPath(a.member)!"
-          >
-            <component :is="a.icon" /> {{ a.label }}
-          </NuxtLink>
-          <template v-else>
-            <component :is="a.icon" /> {{ a.label }}
-          </template>
-        </Badge>
+          :award="a"
+        />
       </CardDescription>
     </CardHeader>
     <CardContent>
