@@ -53,14 +53,17 @@ const valueText = (x: (typeof months)[number]) => mode.value === 'bewertung'
   ? (x.score == null ? '–' : formatScore(x.score))
   : (x.leute == null ? '–' : formatNumber(x.leute, 1))
 
-const best = computed(() => {
-  const list = months.filter(x => (mode.value === 'bewertung' ? x.score : x.leute) != null)
-  const get = (x: (typeof months)[number]) => (mode.value === 'bewertung' ? x.score! : x.leute!)
-  const sorted = [...list].sort((a, b) => get(b) - get(a))
-  return { top: sorted[0], flop: sorted.at(-1) }
-})
-
 const active = ref<number | null>(null)
+
+/** tooltip sits just past the bar's end: above bars that go up, below bars that go down */
+const tipStyle = (x: (typeof months)[number]) => {
+  const b = bar(x)
+  if (!b) return { bottom: '50%' }
+  const down = mode.value === 'bewertung' && x.score != null && x.score < overall
+  return down
+    ? { top: `calc(100% - ${b.bottom} + 4px)` }
+    : { bottom: `calc(${b.bottom} + ${b.height} + 4px)` }
+}
 const activeText = computed(() => {
   const x = active.value == null ? null : months[active.value]!
   if (!x) return null
@@ -83,9 +86,12 @@ const activeText = computed(() => {
     <CardContent class="flex flex-col gap-4">
       <Tabs
         v-model="mode"
-        class="self-start"
+        class="w-full"
       >
-        <TabsList aria-label="Saison zeigen">
+        <TabsList
+          aria-label="Saison zeigen"
+          class="w-full"
+        >
           <TabsTrigger
             v-for="m in MODES"
             :key="m.key"
@@ -97,20 +103,6 @@ const activeText = computed(() => {
         </TabsList>
       </Tabs>
 
-      <p
-        v-if="best.top && best.flop && best.top !== best.flop"
-        class="text-sm"
-      >
-        <template v-if="mode === 'bewertung'">
-          Am besten bewertet: <span class="font-semibold">{{ best.top.long }}</span> (Ø {{ formatScore(best.top.score!) }}),
-          am schlechtesten <span class="font-semibold">{{ best.flop.long }}</span> (Ø {{ formatScore(best.flop.score!) }}).
-        </template>
-        <template v-else>
-          Am vollsten: <span class="font-semibold">{{ best.top.long }}</span> (Ø {{ formatNumber(best.top.leute!, 1) }} Mitglieder),
-          am leersten <span class="font-semibold">{{ best.flop.long }}</span> (Ø {{ formatNumber(best.flop.leute!, 1) }}).
-        </template>
-      </p>
-
       <div
         class="grid grid-cols-12 gap-0.5 sm:gap-1.5"
         role="img"
@@ -120,7 +112,7 @@ const activeText = computed(() => {
         <div
           v-for="x in months"
           :key="x.m"
-          class="flex min-w-0 flex-col items-center gap-1"
+          class="relative flex min-w-0 flex-col items-center gap-1"
           @pointerenter="active = x.m"
         >
           <span class="text-[10px] text-muted-foreground tabular-nums sm:text-xs">{{ valueText(x) }}</span>
@@ -138,26 +130,27 @@ const activeText = computed(() => {
               class="absolute inset-x-[15%] rounded-sm"
               :style="{ bottom: bar(x)!.bottom, height: bar(x)!.height, minHeight: '2px', background: bar(x)!.color }"
             />
+            <!-- desktop: details as a tooltip at the end of the hovered bar; edge months align inward so it stays in the card -->
+            <div
+              v-if="active === x.m && activeText"
+              class="pointer-events-none absolute z-20 hidden w-48 rounded-lg border bg-popover p-2 text-xs text-popover-foreground shadow-md sm:block"
+              :class="x.m < 3 ? 'left-0' : x.m > 8 ? 'right-0' : 'left-1/2 -translate-x-1/2'"
+              :style="tipStyle(x)"
+            >
+              {{ activeText }}
+            </div>
           </div>
           <span class="text-[10px] font-medium sm:text-xs">{{ x.short }}</span>
           <span class="text-[10px] text-muted-foreground tabular-nums">{{ x.abende }}×</span>
         </div>
       </div>
 
+      <!-- mobile: details in a row below (desktop uses the hover tooltip) -->
       <p
-        class="min-h-5 text-sm"
+        class="min-h-5 text-sm sm:hidden"
         aria-live="polite"
       >
-        {{ activeText ?? 'Zeig auf einen Monat für Details.' }}
-      </p>
-      <p class="text-xs text-muted-foreground">
-        <template v-if="mode === 'bewertung'">
-          Balken ab dem Ø aller Abende ({{ formatScore(overall) }}): nach oben besser, nach unten schlechter.
-        </template>
-        <template v-else>
-          Ø Mitglieder pro Abend (wer bewertet hat), ohne Gäste.
-        </template>
-        „n×“ = Anzahl Abende in dem Monat; Monate mit nur einem Abend sind Zufall.
+        {{ activeText ?? 'Tipp auf einen Monat für Details.' }}
       </p>
     </CardContent>
   </Card>

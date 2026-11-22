@@ -22,8 +22,6 @@ const pos = (x: number) => `${((x - LO) / (HI - LO || 1)) * 100}%`
 
 /** a single evening says nothing about the beer → faded */
 const MIN_N = 2
-const top = rows.find(r => r.n >= MIN_N)
-const flop = [...rows].reverse().find(r => r.n >= MIN_N)
 </script>
 
 <template>
@@ -38,14 +36,6 @@ const flop = [...rows].reverse().find(r => r.n >= MIN_N)
     </CardHeader>
 
     <CardContent class="flex flex-col gap-4">
-      <p
-        v-if="top && flop && top !== flop"
-        class="text-sm"
-      >
-        Vorn liegt <span class="font-semibold">{{ top.bier }}</span> (Ø {{ formatScore(top.score) }}),
-        hinten <span class="font-semibold">{{ flop.bier }}</span> (Ø {{ formatScore(flop.score) }}).
-      </p>
-
       <ol class="flex flex-col gap-2">
         <li
           v-for="r in rows"
@@ -94,11 +84,6 @@ const flop = [...rows].reverse().find(r => r.n >= MIN_N)
           >{{ formatScore(t) }}</span>
         </div>
       </div>
-
-      <p class="text-xs text-muted-foreground">
-        Senkrechte Linie = Ø aller Abende ({{ formatScore(overall) }}). Das Bier hängt am Brauhaus,
-        also misst das eher die Brauhäuser einer Sorte als das Bier selbst · blass = nur ein Abend.
-      </p>
     </CardContent>
   </Card>
 </template>

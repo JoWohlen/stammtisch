@@ -46,9 +46,12 @@ const rows = computed(() => [...groupBy(withLiter, v => v.bier).entries()]
     <CardContent class="flex flex-col gap-4">
       <Tabs
         v-model="mode"
-        class="self-start"
+        class="w-full"
       >
-        <TabsList aria-label="Liter zählen">
+        <TabsList
+          aria-label="Liter zählen"
+          class="w-full"
+        >
           <TabsTrigger
             v-for="m in MODES"
             :key="m.key"

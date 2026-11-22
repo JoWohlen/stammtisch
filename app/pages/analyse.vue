@@ -119,8 +119,8 @@ useHorizontalSwipe((d) => {
         <template v-else-if="kategorie === 'bier'">
           <AnalyseBierpreisCard />
           <AnalyseBierbrilleCard />
-          <AnalyseBierCard class="lg:col-span-2" />
           <AnalyseBierBewertungCard class="lg:col-span-2" />
+          <AnalyseBierCard class="lg:col-span-2" />
         </template>
         <template v-else>
           <AnalyseKarteCard class="lg:col-span-2" />
