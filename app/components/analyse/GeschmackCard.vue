@@ -67,9 +67,30 @@ const activeText = computed(() => {
   const a = members[i]!.name
   const b = members[j]!.name
   if (c.self) return null
-  if (c.r == null) return `${a} & ${b}: nur ${c.n} gemeinsame Abende, zu wenig für einen Wert`
-  return `${a} & ${b}: ${fmt(c.r)} über ${c.n} gemeinsame Abende`
+  if (c.r == null) return { pair: `${a} & ${b}`, text: 'zu selten zusammen da', extra: `${c.n} Abende zusammen` }
+  return { pair: `${a} & ${b}`, text: describe(c.r), extra: [standing(c.r), `${c.n} Abende zusammen`].filter(Boolean).join(' · ') }
 })
+
+/** the correlation in a few plain words */
+function describe(r: number): string {
+  if (r >= 0.7) return 'fast gleicher Geschmack'
+  if (r >= 0.5) return 'sehr ähnlicher Geschmack'
+  if (r >= 0.3) return 'eher ähnlicher Geschmack'
+  if (r >= 0.1) return 'kaum ähnlich'
+  if (r > -0.1) return 'kein Zusammenhang'
+  if (r > -0.3) return 'eher unterschiedlich'
+  return 'gegensätzlicher Geschmack'
+}
+
+/** where the pair stands among all pairs with a value, in this category */
+function standing(r: number): string {
+  const all = matrix.value.flatMap((row, i) => row.slice(i + 1)).map(c => c.r).filter((x): x is number => x != null)
+  if (all.length < 5) return ''
+  const share = all.filter(x => x > r).length / all.length
+  if (share < 0.15) return 'eins der ähnlichsten Paare'
+  if (share > 0.85) return 'eins der unähnlichsten Paare'
+  return ''
+}
 
 /** fullscreen on phones, see FullscreenCard */
 const full = ref(false)
@@ -226,13 +247,26 @@ const gridWidth = computed(() => (full.value && gridHeight.value ? `${Math.round
             am wenigsten: <span class="font-semibold">{{ strangers.a }}</span> & <span class="font-semibold">{{ strangers.b }}</span> ({{ fmt(strangers.r!) }})
           </p>
 
-          <p
-            class="min-h-5 text-sm"
-            :class="full && 'rounded-md border bg-muted/40 p-2'"
+          <div
+            class="min-h-16 rounded-md border bg-muted/40 px-3 py-2 text-sm"
             aria-live="polite"
           >
-            {{ activeText ?? 'Tipp oder zeig auf ein Feld für den Wert.' }}
-          </p>
+            <template v-if="activeText">
+              <div class="text-xs text-muted-foreground">
+                {{ activeText.pair }}
+              </div>
+              <div class="font-semibold">
+                {{ activeText.text }}
+              </div>
+              <div class="text-xs text-muted-foreground">
+                {{ activeText.extra }}
+              </div>
+            </template>
+            <span
+              v-else
+              class="text-muted-foreground"
+            >Tipp auf ein Feld.</span>
+          </div>
 
           <!-- legend: viridis over the values present -->
           <div class="flex flex-col gap-1 text-xs text-muted-foreground">
