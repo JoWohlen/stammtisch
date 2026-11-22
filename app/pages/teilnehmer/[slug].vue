@@ -51,6 +51,7 @@ const browse = useBrowse('teilnehmer', computed(() => ({ slug: teilnehmer.slug }
     </template>
 
     <TeilnehmerBilanzCard :teilnehmer="teilnehmer" />
+    <TeilnehmerZeitverlaufCard :teilnehmer="teilnehmer" />
     <TeilnehmerVotesCard :teilnehmer="teilnehmer" />
   </AppPage>
 </template>

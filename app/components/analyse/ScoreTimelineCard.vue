@@ -98,7 +98,7 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
           :format="formatScore"
           :full="full"
           row-hide-value
-          :aria-label="`${cat.label}-Bewertung aller ${bars.length} Besuche im Vergleich zum Ø`"
+          :label="`${cat.label}-Bewertung aller ${bars.length} Besuche im Vergleich zum Ø`"
         >
           <template #tooltip="{ bar }">
             <div class="font-semibold leading-tight">

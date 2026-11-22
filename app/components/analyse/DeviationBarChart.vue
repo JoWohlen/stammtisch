@@ -17,7 +17,8 @@ const props = defineProps<{
   avg: number
   higherIsBetter: boolean
   format: (n: number) => string
-  ariaLabel: string
+  /** accessible name of the chart (not `ariaLabel`: that clashes with the HTML attribute's typing) */
+  label: string
   /** fullscreen: fill the available height instead of the fixed one */
   full?: boolean
   /** mobile row: leave out the bar's value (when the row slot already shows it) */
@@ -197,7 +198,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${props.form
         v-if="width"
         class="absolute inset-0 flex"
         role="img"
-        :aria-label="ariaLabel"
+        :aria-label="label"
       >
         <!-- fixed y axis -->
         <svg

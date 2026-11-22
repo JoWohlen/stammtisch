@@ -58,7 +58,7 @@ const perHead = (v: Visit) => {
           :format="fmt"
           :full="full"
           row-hide-value
-          :aria-label="`Preis/Leistung aller ${bars.length} Besuche im Vergleich zum Ø`"
+          :label="`Preis/Leistung aller ${bars.length} Besuche im Vergleich zum Ø`"
         >
           <template #tooltip="{ bar }">
             <div class="font-semibold leading-tight">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Beer, CalendarDays, CircleDollarSign, Compass, GlassWater, Hash, Martini, Receipt, Scale, Star, Tag, UserPlus, Users, Wallet } from '@lucide/vue'
 import type { Visit } from '#shared/types'
+import { useMediaQuery } from '@vueuse/core'
 import { type FitOptions, fitForms, formatDate, formatScore } from '@/lib/format'
 
 const props = defineProps<{ visit: Visit }>()
@@ -12,6 +13,14 @@ const awards = computed(() => getAwards(props.visit))
 const EURO: FitOptions = { digits: 2, suffix: '\u00A0€' }
 const dash = (n: number | null, opts?: FitOptions): string | string[] => (n == null ? '–' : fitForms(n, opts))
 
+/** phones always show the bill rounded; only known after hydration, so the prerendered HTML matches */
+const phoneQuery = useMediaQuery('(max-width: 639px)')
+const mounted = ref(false)
+onMounted(() => (mounted.value = true))
+const phone = computed(() => mounted.value && phoneQuery.value)
+/** whole euros, properly rounded (fitForms' short form would cut the cents off) */
+const rounded = (n: number | null): string | string[] => (n == null ? '–' : fitForms(Math.round(n), { suffix: EURO.suffix }))
+
 const heads = computed(() => (props.visit.mitglieder ?? 0) + (props.visit.gaeste ?? 0))
 const perHead = (n: number | null) => (n != null && heads.value > 0 ? n / heads.value : null)
 const raters = computed(() => new Set(Object.values(props.visit.ratings).flatMap(Object.keys)).size)
@@ -22,7 +31,7 @@ const tiles = computed(() => {
   return [
     { label: 'Mitglieder', icon: Users, value: dash(v.mitglieder) },
     { label: 'Gäste', icon: UserPlus, value: dash(v.gaeste) },
-    { label: 'Rechnung', icon: Wallet, value: dash(v.rechnung, EURO) },
+    { label: 'Rechnung', icon: Wallet, value: phone.value ? rounded(v.rechnung) : dash(v.rechnung, EURO) },
     { label: '€ pro Kopf', icon: Receipt, value: dash(perHead(v.rechnung), EURO) },
     { label: 'Preis/Leistung', icon: Scale, value: dash(v.averages.preisLeistung, { digits: 2 }), sub: '€ pro Kopf / Gesamt' },
     { label: 'Biere', icon: Beer, value: dash(v.biere) },

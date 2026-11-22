@@ -32,3 +32,16 @@ export interface DeviationBar {
   /** link target */
   to: string
 }
+
+/** one dot in a ScatterChart */
+export interface ScatterPoint {
+  key: string | number
+  x: number
+  y: number
+  /** tooltip lines: title, then details */
+  title: string
+  lines?: string[]
+  to?: string
+  /** dot colour, default foreground */
+  color?: string
+}

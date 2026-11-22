@@ -1,4 +1,3 @@
-import { useEventListener } from '@vueuse/core'
 import type { ComputedRef } from 'vue'
 import { formatDate } from '@/lib/format'
 
@@ -41,21 +40,6 @@ export function useBrowseList() {
     order.value = { ...order.value, [kind]: paths }
     fromList = true
   }
-}
-
-/** swipes shorter than this, or more vertical than horizontal, are scrolling, not browsing */
-const MIN_SWIPE_PX = 70
-const MAX_SWIPE_MS = 700
-
-/** element that handles horizontal touch itself (inputs, sliders, side-scrolling areas, maps/charts) */
-function handlesTouch(el: Element | null): boolean {
-  for (let e = el; e && e !== document.body; e = e.parentElement) {
-    if (e.matches('input, textarea, select, [data-no-swipe]')) return true
-    const style = getComputedStyle(e)
-    if (style.touchAction === 'none') return true
-    if (/(auto|scroll)/.test(style.overflowX) && e.scrollWidth > e.clientWidth) return true
-  }
-  return false
 }
 
 /**
@@ -118,27 +102,7 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
     navigateTo(t.to, { replace: true })
   }
 
-  if (import.meta.client) {
-    let start: { x: number, y: number, t: number } | null = null
-    useEventListener(window, 'touchstart', (e: TouchEvent) => {
-      const touch = e.touches[0]
-      // one finger, not on something that pans itself, and no fullscreen chart (it locks the body)
-      start = e.touches.length === 1 && touch && !handlesTouch(e.target as Element) && document.body.style.overflow !== 'hidden'
-        ? { x: touch.clientX, y: touch.clientY, t: Date.now() }
-        : null
-    }, { passive: true })
-    useEventListener(window, 'touchend', (e: TouchEvent) => {
-      const touch = e.changedTouches[0]
-      if (!start || !touch) return
-      const dx = touch.clientX - start.x
-      const dy = touch.clientY - start.y
-      const quick = Date.now() - start.t < MAX_SWIPE_MS
-      start = null
-      if (!quick || Math.abs(dx) < MIN_SWIPE_PX || Math.abs(dx) < 2 * Math.abs(dy)) return
-      if (window.getSelection()?.toString()) return
-      go(dx < 0 ? next.value : prev.value)
-    }, { passive: true })
-  }
+  useHorizontalSwipe(dir => go(dir === 'left' ? next.value : prev.value))
 
   return { prev, next, counter, go }
 }

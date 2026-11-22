@@ -487,8 +487,10 @@ watch(baseH, resetZoom)
                 one finger scrolls the page (fullscreen: pans the map), two fingers zoom/pan the map
                 (touch-action: no browser pinch here, in fullscreen no browser gestures at all)
               -->
+              <!-- data-no-swipe: dragging over the map must not switch the Analyse category -->
               <svg
                 ref="svgEl"
+                data-no-swipe
                 :viewBox="viewBox"
                 class="block h-auto w-full select-none [-webkit-touch-callout:none]"
                 :class="full ? 'touch-none' : 'touch-pan-x touch-pan-y'"

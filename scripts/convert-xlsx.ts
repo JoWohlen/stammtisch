@@ -101,6 +101,13 @@ function col(header: string[], name: string, nth = 0): number {
   throw new Error(`Column "${name}" (#${nth + 1}) not found`)
 }
 
+/** Index of the first column whose header starts with `prefix` (e.g. "Bierpreis" matches "Bierpreis 0.2 L"). */
+function colStartingWith(header: string[], prefix: string): number {
+  const i = header.findIndex(h => h.startsWith(prefix))
+  if (i < 0) throw new Error(`Column "${prefix}…" not found`)
+  return i
+}
+
 function main() {
   const wb = XLSX.read(readFileSync(SRC), { type: 'buffer' })
 
@@ -114,7 +121,7 @@ function main() {
     rechnung: col(H, 'Rechnung'),
     biere: col(H, 'Bier', 1),
     liter: col(H, 'Liter Bier'),
-    bierpreis: col(H, 'Bierpreis'),
+    bierpreis: colStartingWith(H, 'Bierpreis'),
     kurze: col(H, 'Kurze'),
     planer: col(H, 'Planer'),
     datum: col(H, 'Datum'),
