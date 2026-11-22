@@ -12,13 +12,12 @@ const SECTIONS: { scope: AwardScope, id: string, nav: string, icon: Component, t
   { scope: 'brauhaus', id: 'brauhaeuser', nav: 'Brauhäuser', icon: Store, title: 'Brauhaus-Awards', description: 'Werden an einzelne Besuche vergeben. Bei Gleichstand gewinnen alle.' },
   { scope: 'mitglied', id: 'mitglieder', nav: 'Mitglieder', icon: Users, title: 'Mitglieder-Awards', description: 'Werden an Mitglieder vergeben. Bei Gleichstand gewinnen alle.' },
 ]
-// only awards that have been handed out are listed, so new ones show up as a surprise when they happen
+// every award is listed, also those nobody has won yet
 const sections = SECTIONS.map(s => ({
   ...s,
   awards: AWARD_DEFS.filter(d => d.scope === s.scope && !d.hidden)
-    .map(d => ({ def: d, mentions: getAwardMentions(d.type) }))
-    .filter(a => a.mentions.length),
-})).filter(s => s.awards.length)
+    .map(d => ({ def: d, mentions: getAwardMentions(d.type) })),
+}))
 const shown = new Set(sections.flatMap(s => s.awards.map(a => a.def.type)))
 
 const ICON_TONE: Record<AwardTone, string> = {
@@ -126,7 +125,14 @@ const setOpen = (d: AwardDef, open: boolean) => {
               {{ d.explain }}
             </p>
 
+            <p
+              v-if="!mentions.length"
+              class="mt-auto rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground"
+            >
+              Noch nicht vergeben
+            </p>
             <Collapsible
+              v-else
               class="mt-auto"
               :open="openLists.has(d.type)"
               @update:open="setOpen(d, $event)"
