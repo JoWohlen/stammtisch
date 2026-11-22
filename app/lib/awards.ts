@@ -99,15 +99,15 @@ export const AWARD_DEFS: AwardDef[] = [
   def({ type: 'welt', scope: 'brauhaus', label: 'Weltenbummler', icon: Plane, tone: 'neutral', hint: 'Stammtisch außerhalb von Köln', explain: 'Ein Stammtisch, der nicht in Köln stattfand.' }),
 
   // ---- Mitglieder ----
-  def({ type: 'm-fleissig', scope: 'mitglied', label: 'Fleißig', icon: CalendarPlus, tone: 'good', hint: 'Hat die meisten Abende geplant', explain: 'Das Mitglied, das die meisten Stammtische geplant hat.' }),
+  def({ type: 'm-fleissig', scope: 'mitglied', label: 'Fleißig', icon: CalendarPlus, tone: 'good', hint: 'Hat die meisten Abende geplant', explain: 'Das Mitglied, das die meisten Stammtische geplant hat. Bei Gleichstand gewinnt, wer zuletzt geplant hat.' }),
   def({ type: 'm-planer', scope: 'mitglied', label: 'Bester Planer', icon: Crown, tone: 'good', hint: 'Höchste Ø Bewertung der selbst geplanten Abende', explain: 'Das Mitglied, dessen geplante Abende im Schnitt die höchste Gesamtbewertung bekommen haben. Bei Gleichstand gewinnt, wer mehr Abende geplant hat.' }),
   def({ type: 'm-dauergast', scope: 'mitglied', label: 'Dauergast', icon: CalendarCheck, tone: 'good', hint: 'Die meisten Besuche', explain: 'Das Mitglied, das bei den meisten Stammtischen dabei war.' }),
   def({ type: 'm-treu', scope: 'mitglied', label: 'Treue Seele', icon: Heart, tone: 'good', hint: 'Höchste Anwesenheit seit Beitritt', explain: `Das Mitglied mit der höchsten Anwesenheitsquote seit dem eigenen ersten Besuch.` }),
   def({ type: 'm-bier', scope: 'mitglied', label: 'Bierkönig', icon: Beer, tone: 'neutral', hint: 'Meiste Liter Bier pro Abend', explain: `Das Mitglied mit dem höchsten Ø Bieranteil pro Abend. Pro Abend wird die getrunkene Menge gleichmäßig auf alle Anwesenden (Mitglieder und Gäste) verteilt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-streng', scope: 'mitglied', label: 'Strengster Kritiker', icon: Gavel, tone: 'neutral', hint: 'Niedrigste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die niedrigsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-mild', scope: 'mitglied', label: 'Gute Seele', icon: Sparkles, tone: 'neutral', hint: 'Höchste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die höchsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
-  def({ type: 'm-eigenlob', scope: 'mitglied', label: 'Eigenlob', icon: Megaphone, tone: 'bad', hint: 'Bewertet die eigenen Abende am großzügigsten', explain: `Eigenlob stinkt: das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am besten bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
-  def({ type: 'm-bescheiden', scope: 'mitglied', label: 'Bescheidenheit', icon: Wheat, tone: 'good', hint: 'Am wenigsten Eigenlob', explain: `Das Gegenteil von Eigenlob: das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am wenigsten hoch bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
+  def({ type: 'm-eigenlob', scope: 'mitglied', label: 'Poser', icon: Megaphone, tone: 'bad', hint: 'Ist am stolzesten auf die eigenen Abende', explain: `Das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am besten bewertet. Ein bisschen Stolz auf den eigenen Abend ist ja erlaubt. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
+  def({ type: 'm-bescheiden', scope: 'mitglied', label: 'Bescheiden', icon: Wheat, tone: 'good', hint: 'Am wenigsten Eigenlob', explain: `Das Gegenteil vom Poser: das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am wenigsten hoch bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
   def({ type: 'm-flexibel', scope: 'mitglied', label: 'Flexibel', icon: Wind, tone: 'neutral', hint: 'Die eigenen Bewertungen schwanken am stärksten', explain: `Das Mitglied, dessen eigene Gesamtbewertungen von Abend zu Abend am stärksten schwanken. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-eisern', scope: 'mitglied', label: 'Eisern', icon: Anvil, tone: 'neutral', hint: 'Die eigenen Bewertungen schwanken am wenigsten', explain: `Das Gegenteil von Flexibel: das Mitglied, dessen eigene Gesamtbewertungen von Abend zu Abend am wenigsten schwanken. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-querdenker', scope: 'mitglied', label: 'Querdenker', icon: Shuffle, tone: 'neutral', hint: 'Liegt am weitesten neben dem Ø der Runde', explain: `Das Mitglied, dessen Gesamtbewertung im Schnitt am weitesten von der der anderen am selben Abend abweicht. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
@@ -364,6 +364,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       vote: enough ? mean(own) : null,
       schwankung: enough ? Math.sqrt(mean(own.map(x => (x - mean(own)) ** 2))) : null,
       geplant: planned.length,
+      zuletztGeplant: planned.at(-1)?.date ?? '',
       planerScore: plannedScored.length ? mean(plannedScored.map(v => v.averages.gesamt!)) : null,
       planerScored: plannedScored.length,
       abweichung: enough && gesamtDiffs.length ? mean(gesamtDiffs.map(Math.abs)) : null,
@@ -406,7 +407,10 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
     extreme(stats, get, dir).filter(e => (dir === 'max' ? e.x > 0 : e.x < 0))
   give('m-flexibel', extreme(stats, s => s.schwankung, 'max'), x => `± ${formatNumber(x, 2)} Punkte`)
   give('m-eisern', extreme(stats, s => s.schwankung, 'min'), x => `± ${formatNumber(x, 2)} Punkte`)
-  give('m-fleissig', positive('max', s => s.geplant), x => `${formatNumber(x)} Abende geplant`)
+  // planning rotates, so ties are common: the one who planned most recently wins
+  const fleissig = positive('max', s => s.geplant)
+  const latest = fleissig.map(e => e.item.zuletztGeplant).sort().at(-1)
+  give('m-fleissig', fleissig.filter(e => e.item.zuletztGeplant === latest), x => `${formatNumber(x)} Abende geplant`)
   give('m-querdenker', extreme(stats, s => s.abweichung, 'max'), x => `± ${formatNumber(x, 2)} Punkte`)
   give('m-herdentier', extreme(stats, s => s.abweichung, 'min'), x => `± ${formatNumber(x, 2)} Punkte`)
   give('m-gourmet', positive('min', s => s.essen), x => `${signed(x)} Punkte beim Essen`)
