@@ -18,9 +18,8 @@ const ticks = Array.from({ length: Math.round((MAX - MIN) / TICK) + 1 }, (_, i) 
 const tickLabel = (t: number) => (t === 0 ? '0' : `${t > 0 ? '+' : '−'}${formatUpTo1(Math.abs(t))}`)
 const pos = (n: number) => `${((n - MIN) / (MAX - MIN)) * 100}%`
 
-/** below this many planned evenings a single night decides the value → faded, never the headline */
+/** below this many planned evenings a single night decides the value → faded */
 const MIN_N = 3
-const top = rows.find(r => r.geplantN >= MIN_N)
 
 const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
 </script>
@@ -39,14 +38,6 @@ const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
     </CardHeader>
 
     <CardContent class="flex flex-col gap-4">
-      <p
-        v-if="top && top.bonus > 0"
-        class="text-sm"
-      >
-        Am meisten Eigenlob verteilt <span class="font-semibold">{{ top.name }}</span>:
-        die eigenen Abende bekommen {{ signed(top.geplant) }} gegenüber dem Rest der Gruppe, fremde {{ signed(top.fremd) }}.
-      </p>
-
       <!-- legend -->
       <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span class="inline-flex items-center gap-1.5">
@@ -134,9 +125,8 @@ const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
       </div>
 
       <p class="text-xs text-muted-foreground">
-        Abweichung in Punkten von der Gruppe · rechts von 0 = großzügiger als die anderen.
-        Gezählt werden nur Abende, die man selbst bewertet hat.
-        Jeder hat nur wenige Abende geplant, also eher Tendenz als Beweis · blass = weniger als {{ MIN_N }} bewertete eigene Abende.
+        rechts von 0 = großzügiger als die anderen<br>
+        links von 0 = strenger als die anderen
       </p>
     </CardContent>
   </Card>

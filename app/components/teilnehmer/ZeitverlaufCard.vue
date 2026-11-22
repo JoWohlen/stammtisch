@@ -33,6 +33,9 @@ const allScores = (nr: number) => {
   return v ? SCORE_KEYS.map(s => ({ ...s, x: vote(v, props.teilnehmer.name, s.key), selected: s.key === key.value })) : []
 }
 
+/** the member's own votes keyed by category, for the tap row */
+const ownScores = (nr: number) => Object.fromEntries(allScores(nr).map(s => [s.key, s.x])) as Record<ScoreKey, number | null>
+
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScore(Math.abs(n))}`
 </script>
 
@@ -103,6 +106,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
                 <component
                   :is="s.icon"
                   class="size-3"
+                  :style="{ color: s.color }"
                   :aria-label="s.label"
                 />
                 {{ formatScore(s.x) }}
@@ -115,26 +119,12 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${formatScor
               Rest der Runde Ø {{ formatScore(byNr.get(bar.id)!.others!) }} ({{ signed(bar.value - byNr.get(bar.id)!.others!) }})
             </div>
           </template>
-          <!-- tap row (phones, fullscreen): date · Gesamt · Location · Service · Essen, the chosen tab's score highlighted.
-               The outer span carries the "·" separator. -->
           <template #row="{ bar }">
-            <span>{{ formatDate(bar.date) }}</span>
-            <span
-              v-for="s in allScores(bar.id)"
-              :key="s.key"
-            >
-              <span
-                class="inline-flex items-center gap-0.5"
-                :class="s.selected && 'font-semibold text-foreground'"
-              >
-                <component
-                  :is="s.icon"
-                  class="size-3"
-                  :aria-label="s.label"
-                />
-                {{ formatScore(s.x) }}
-              </span>
-            </span>
+            <AnalyseScoreRow
+              :date="bar.date"
+              :scores="ownScores(bar.id)"
+              :selected="key"
+            />
           </template>
         </AnalyseDeviationBarChart>
       </CardContent>

@@ -32,7 +32,7 @@ const BESCHLUESSE: { date: string, regeln: string[] }[] = [
   {
     date: '2026-10-31',
     regeln: [
-      'Zum 31.10.2026 nehmen wir Johannes Jr. auf.',
+      'Johannes Jr. wird am 31.10.2026 aufgenommen.',
     ],
   },
 ]

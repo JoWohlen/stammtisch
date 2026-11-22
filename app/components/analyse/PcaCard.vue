@@ -23,15 +23,15 @@ const maxShare = top[0]!.share
         Die {{ TOP }} wichtigsten Merkmale
       </CardTitle>
       <CardDescription>
-        Worin unterscheiden sich unsere Stammtische am meisten? Je höher der Prozentwert, desto stärker
-        prägt das Merkmal, wie ein Abend im Vergleich zu den anderen ausfällt. Alle {{ r.importance.length }}
-        Merkmale zusammen ergeben 100 %.
+        Was macht einen Abend anders als die anderen? Manche Dinge sind fast jedes Mal gleich,
+        andere schwanken stark von Abend zu Abend. Je länger der Balken, desto mehr unterscheiden sich
+        unsere Stammtische genau darin.
       </CardDescription>
     </CardHeader>
 
     <CardContent class="flex flex-col gap-3">
       <p class="text-sm text-muted-foreground">
-        Diese {{ TOP }} machen zusammen <span class="font-medium text-foreground tabular-nums">{{ pct(topShare) }}</span> aus.
+        Diese {{ TOP }} erklären zusammen <span class="font-medium text-foreground tabular-nums">{{ pct(topShare) }}</span> davon, wie unterschiedlich unsere Abende sind.
       </p>
       <ol class="flex flex-col gap-2">
         <li
@@ -51,10 +51,7 @@ const maxShare = top[0]!.share
         </li>
       </ol>
       <p class="text-xs text-muted-foreground">
-        Übrige: {{ r.importance.slice(TOP).map(i => `${i.feature.label} ${pct(i.share, 1)}`).join(' · ') }}
-      </p>
-      <p class="text-xs text-muted-foreground">
-        Ausgewertet über alle {{ r.samples }} Besuche mit einer Hauptkomponentenanalyse (PCA).
+        Weniger wichtig: {{ r.importance.slice(TOP).map(i => `${i.feature.label} ${pct(i.share, 1)}`).join(' · ') }}
       </p>
     </CardContent>
   </Card>

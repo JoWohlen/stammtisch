@@ -1,23 +1,17 @@
 <script setup lang="ts">
 import { createReusableTemplate } from '@vueuse/core'
-import { Handshake, MapPin, Star, Utensils } from '@lucide/vue'
-import type { Category } from '#shared/types'
+import { SCORE_KEYS, type ScoreKey } from '@/lib/analysis'
 import type { DeviationBar } from '@/lib/chart'
 import { formatDate, formatScore } from '@/lib/format'
 
-type Key = Category | 'gesamt'
+type Key = ScoreKey
 
 /** the category switch: below the title normally, next to it in fullscreen */
 const [DefineTabs, ReuseTabs] = createReusableTemplate()
 
 const { visits } = useStammtisch()
 
-const CATS: { key: Key, label: string, short: string, icon: typeof MapPin, color: string }[] = [
-  { key: 'gesamt', label: 'Gesamt', short: 'Gesamt', icon: Star, color: 'var(--foreground)' },
-  { key: 'location', label: 'Location', short: 'Loc.', icon: MapPin, color: '#2563eb' },
-  { key: 'service', label: 'Service', short: 'Serv.', icon: Handshake, color: '#ea580c' },
-  { key: 'essen', label: 'Essen/Trinken', short: 'Essen', icon: Utensils, color: '#16a34a' },
-]
+const CATS = SCORE_KEYS
 
 const selected = ref<Key>('gesamt')
 const cat = computed(() => CATS.find(c => c.key === selected.value)!)
@@ -131,22 +125,11 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
             </dl>
           </template>
           <template #row="{ bar }">
-            <span
-              v-for="c in CATS"
-              :key="c.key"
-              class="inline-flex items-center gap-0.5"
-              :class="c.key === selected && 'font-semibold text-foreground'"
-              :title="c.label"
-            >
-              <component
-                :is="c.icon"
-                class="size-3"
-                :style="{ color: c.color }"
-                aria-hidden="true"
-              />
-              <span class="sr-only">{{ c.label }}</span>
-              {{ formatScore(byNr.get(bar.id)!.averages[c.key]) }}
-            </span>
+            <AnalyseScoreRow
+              :date="bar.date"
+              :scores="byNr.get(bar.id)!.averages"
+              :selected="selected"
+            />
           </template>
         </AnalyseDeviationBarChart>
       </CardContent>

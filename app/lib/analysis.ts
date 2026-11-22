@@ -6,11 +6,12 @@ import { CATEGORIES, mean, raterNames } from '@/lib/stats'
 /** Gesamt or one of the three categories, as switched by <AnalyseScoreKeyTabs> */
 export type ScoreKey = Category | 'gesamt'
 
-export const SCORE_KEYS: { key: ScoreKey, label: string, short: string, icon: Component }[] = [
-  { key: 'gesamt', label: 'Gesamt', short: 'Gesamt', icon: Star },
-  { key: 'location', label: 'Location', short: 'Loc.', icon: MapPin },
-  { key: 'service', label: 'Service', short: 'Serv.', icon: Handshake },
-  { key: 'essen', label: 'Essen/Trinken', short: 'Essen', icon: Utensils },
+/** `color` tints the category icons in tooltips and tap rows (see <AnalyseScoreRow>) */
+export const SCORE_KEYS: { key: ScoreKey, label: string, short: string, icon: Component, color: string }[] = [
+  { key: 'gesamt', label: 'Gesamt', short: 'Gesamt', icon: Star, color: 'var(--foreground)' },
+  { key: 'location', label: 'Location', short: 'Loc.', icon: MapPin, color: '#2563eb' },
+  { key: 'service', label: 'Service', short: 'Serv.', icon: Handshake, color: '#ea580c' },
+  { key: 'essen', label: 'Essen/Trinken', short: 'Essen', icon: Utensils, color: '#16a34a' },
 ]
 export const scoreKeyLabel = (k: ScoreKey) => SCORE_KEYS.find(s => s.key === k)!.label
 
@@ -66,7 +67,7 @@ export function linearFit(xs: number[], ys: number[]): { slope: number, intercep
 }
 
 /** linear-interpolated quantile of an ascending list */
-function quantile(sorted: number[], q: number): number {
+export function quantile(sorted: number[], q: number): number {
   const pos = (sorted.length - 1) * q
   const lo = Math.floor(pos)
   const hi = Math.ceil(pos)

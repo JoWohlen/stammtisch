@@ -6,8 +6,8 @@ import { formatDate } from '@/lib/format'
 useHead({ title: 'Analyse · Stammtisch-Tracker' })
 
 const { overviewStats: s } = useStammtisch()
-const description = s.ersterBesuch && s.letzterBesuch
-  ? `Auswertungen über alle ${s.besuche} Stammtische · ${formatDate(s.ersterBesuch)} – ${formatDate(s.letzterBesuch)}`
+const zeitraum = s.ersterBesuch && s.letzterBesuch
+  ? `${formatDate(s.ersterBesuch)} – ${formatDate(s.letzterBesuch)}`
   : undefined
 
 type Kategorie = 'bewertungen' | 'termine' | 'bier' | 'orte'
@@ -49,10 +49,19 @@ useHorizontalSwipe((d) => {
 </script>
 
 <template>
-  <AppPage
-    title="Analyse"
-    :description="description"
-  >
+  <AppPage title="Analyse">
+    <template
+      v-if="zeitraum"
+      #description
+    >
+      <!-- two lines on mobile, one line with a separator from sm up -->
+      <span class="block sm:inline">Auswertungen über alle {{ s.besuche }} Stammtische</span>
+      <span
+        class="hidden sm:inline"
+        aria-hidden="true"
+      > · </span>
+      <span class="block sm:inline">{{ zeitraum }}</span>
+    </template>
     <template #header>
       <Tabs
         :model-value="kategorie"

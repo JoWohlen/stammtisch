@@ -29,16 +29,6 @@ const bars = computed<DeviationBar[]>(() => rows.value.map(r => ({
 })))
 const avg = computed(() => mean(bars.value.map(b => b.value)))
 
-/** first vs second half of all evenings: getting more alike or less? */
-const trend = computed(() => {
-  const xs = bars.value.map(b => b.value)
-  if (xs.length < 6) return null
-  const half = Math.floor(xs.length / 2)
-  const before = mean(xs.slice(0, half))
-  const after = mean(xs.slice(half))
-  return { before, after, einiger: after < before }
-})
-
 const fmt = (n: number) => `± ${formatNumber(n, 2)}`
 </script>
 
@@ -50,7 +40,7 @@ const fmt = (n: number) => `± ${formatNumber(n, 2)}`
           Konsens im Zeitverlauf
         </CardTitle>
         <CardDescription v-if="!full">
-          Wie weit lagen die Stimmen an einem Abend auseinander (Standardabweichung)?
+          Wie weit lagen die Stimmen an einem Abend auseinander?
           Ein Balken pro Besuch: nach oben = einiger als sonst, nach unten = uneiniger.
         </CardDescription>
         <CardAction class="flex items-center gap-2">
@@ -69,15 +59,8 @@ const fmt = (n: number) => `± ${formatNumber(n, 2)}`
         <AnalyseScoreKeyTabs
           v-if="!full"
           v-model="key"
+          stretch="mobile"
         />
-
-        <p
-          v-if="trend && !full"
-          class="text-sm"
-        >
-          In der ersten Hälfte aller Abende lagen die Stimmen im Schnitt {{ fmt(trend.before) }} auseinander, seitdem {{ fmt(trend.after) }}:
-          wir sind <span class="font-semibold">{{ trend.einiger ? 'einiger' : 'uneiniger' }}</span> geworden.
-        </p>
 
         <AnalyseDeviationBarChart
           :bars="bars"
@@ -99,13 +82,6 @@ const fmt = (n: number) => `± ${formatNumber(n, 2)}`
             </div>
           </template>
         </AnalyseDeviationBarChart>
-
-        <p
-          v-if="!full"
-          class="text-xs text-muted-foreground"
-        >
-          Ø Streuung {{ fmt(avg) }} · gezählt werden Abende mit mindestens {{ MIN_RATERS }} Stimmen.
-        </p>
       </CardContent>
     </Card>
   </FullscreenCard>

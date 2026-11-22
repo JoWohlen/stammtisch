@@ -40,10 +40,12 @@ defineProps<{
         <slot name="actions" />
       </div>
       <p
-        v-if="description"
+        v-if="description || $slots.description"
         class="text-sm text-muted-foreground"
       >
-        {{ description }}
+        <slot name="description">
+          {{ description }}
+        </slot>
       </p>
       <slot name="header" />
     </header>

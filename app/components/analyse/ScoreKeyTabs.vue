@@ -3,18 +3,19 @@ import { SCORE_KEYS, type ScoreKey } from '@/lib/analysis'
 
 /** The Gesamt / Location / Service / Essen switch shared by the analysis cards. */
 const model = defineModel<ScoreKey>({ required: true })
-/** span the full width (the four options share it) instead of hugging the left */
-defineProps<{ stretch?: boolean }>()
+/** span the full width (the four options share it) instead of hugging the left; 'mobile' only below sm */
+const props = defineProps<{ stretch?: boolean | 'mobile' }>()
+const fill = computed(() => props.stretch === 'mobile' ? 'w-full sm:w-auto' : props.stretch ? 'w-full' : '')
 </script>
 
 <template>
   <Tabs
     v-model="model"
-    :class="stretch ? 'w-full' : 'self-start'"
+    :class="stretch === 'mobile' ? 'w-full sm:w-auto sm:self-start' : stretch ? 'w-full' : 'self-start'"
   >
     <TabsList
       aria-label="Kategorie"
-      :class="stretch && 'w-full'"
+      :class="fill"
     >
       <TabsTrigger
         v-for="c in SCORE_KEYS"

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { fiveNumbers, type ScoreKey, scoreKeyLabel, vote } from '@/lib/analysis'
+import { fiveNumbers, quantile, type ScoreKey, scoreKeyLabel, std, vote } from '@/lib/analysis'
 import { formatScore } from '@/lib/format'
 import { memberColor } from '@/lib/members'
 
 /**
- * One box plot ("Kerze") per member over all their votes: whiskers = lowest/highest vote,
- * box = middle half (25–75 %), line = median, dot = mean.
+ * One violin per member over all their votes: the shape is a smoothed density (Gaussian kernel),
+ * thick where many votes landed, mirrored around the middle; line = median, dot = mean.
  */
 const { visits, participants } = useStammtisch()
 const key = ref<ScoreKey>('gesamt')
@@ -14,8 +14,9 @@ const key = ref<ScoreKey>('gesamt')
 const MIN_N = 5
 
 const rows = computed(() => participants.flatMap((p) => {
-  const f = fiveNumbers(visits.map(v => vote(v, p.name, key.value)).filter((x): x is number => x != null))
-  return f ? [{ ...p, ...f }] : []
+  const xs = visits.map(v => vote(v, p.name, key.value)).filter((x): x is number => x != null)
+  const f = fiveNumbers(xs)
+  return f ? [{ ...p, ...f, ...violin(xs) }] : []
 }))
 
 /** fixed 1–5 scale, the whole voting range, so cards are comparable when switching */
@@ -23,10 +24,32 @@ const LO = 1
 const HI = 5
 const ticks = [1, 2, 3, 4, 5]
 const pos = (x: number) => `${((x - LO) / (HI - LO)) * 100}%`
-const span = (a: number, b: number) => ({ left: pos(a), width: `calc(${pos(b)} - ${pos(a)})` })
 
-const widest = computed(() => [...rows.value].filter(r => r.n >= MIN_N).sort((a, b) => (b.q3 - b.q1) - (a.q3 - a.q1))[0])
-const narrowest = computed(() => [...rows.value].filter(r => r.n >= MIN_N).sort((a, b) => (a.q3 - a.q1) - (b.q3 - b.q1))[0])
+/** x in the SVG's 0–100 coordinate space (same scale as `pos`) */
+const sx = (x: number) => ((x - LO) / (HI - LO)) * 100
+
+/**
+ * Kernel density over the votes, as an SVG path in a 100 × 2 box (middle line at y = 1),
+ * scaled so each member's thickest spot fills the row. Tails run 2 bandwidths past the
+ * lowest/highest vote, cut at the 1–5 scale. Also returns the half-thickness at the median.
+ */
+function violin(xs: number[]) {
+  const s = [...xs].sort((a, b) => a - b)
+  const iqr = quantile(s, 0.75) - quantile(s, 0.25)
+  const spread = Math.min(std(s), iqr ? iqr / 1.34 : Infinity)
+  // Silverman's rule; a floor keeps few or identical votes from collapsing into a spike
+  const h = Math.max(0.15, 0.9 * (Number.isFinite(spread) ? spread : 0) * s.length ** -0.2)
+  const density = (x: number) => s.reduce((sum, v) => sum + Math.exp(-0.5 * ((x - v) / h) ** 2), 0)
+  const a = Math.max(LO, s[0]! - 2 * h)
+  const b = Math.min(HI, s.at(-1)! + 2 * h)
+  const STEPS = 80
+  const pts = Array.from({ length: STEPS + 1 }, (_, i) => a + ((b - a) * i) / STEPS).map(x => [x, density(x)] as const)
+  const peak = Math.max(...pts.map(p => p[1])) || 1
+  const half = (d: number) => (d / peak) * 0.95
+  const top = pts.map(([x, d]) => `${sx(x).toFixed(2)},${(1 - half(d)).toFixed(3)}`)
+  const bottom = pts.toReversed().map(([x, d]) => `${sx(x).toFixed(2)},${(1 + half(d)).toFixed(3)}`)
+  return { path: `M${top.join('L')}L${bottom.join('L')}Z`, medianHalf: half(density(quantile(s, 0.5))) }
+}
 
 const describe = (r: (typeof rows.value)[number]) =>
   `${r.name}: ${r.n} Stimmen · niedrigste ${formatScore(r.min)}, mittlere Hälfte ${formatScore(r.q1)}–${formatScore(r.q3)}, Median ${formatScore(r.median)}, Ø ${formatScore(r.mean)}, höchste ${formatScore(r.max)}`
@@ -39,23 +62,16 @@ const describe = (r: (typeof rows.value)[number]) =>
         Notenverteilung
       </CardTitle>
       <CardDescription>
-        Wie nutzt jedes Mitglied die Skala? Die Linie reicht von der niedrigsten bis zur höchsten Stimme,
-        der Kasten zeigt die mittlere Hälfte aller Stimmen, der Strich darin den Median und der Punkt den Durchschnitt.
+        Wie nutzt jedes Mitglied die Skala? Je breiter die Form, desto mehr Stimmen lagen dort,
+        der Strich zeigt den Median und der Punkt den Durchschnitt.
       </CardDescription>
     </CardHeader>
 
     <CardContent class="flex flex-col gap-4">
-      <AnalyseScoreKeyTabs v-model="key" />
-
-      <p
-        v-if="widest && narrowest && widest !== narrowest"
-        class="text-sm"
-      >
-        Die breiteste Spanne nutzt <span class="font-semibold">{{ widest.name }}</span>
-        ({{ formatScore(widest.q1) }}–{{ formatScore(widest.q3) }}),
-        am engsten bleibt <span class="font-semibold">{{ narrowest.name }}</span>
-        ({{ formatScore(narrowest.q1) }}–{{ formatScore(narrowest.q3) }}).
-      </p>
+      <AnalyseScoreKeyTabs
+        v-model="key"
+        stretch="mobile"
+      />
 
       <ol
         class="flex flex-col gap-2.5"
@@ -76,7 +92,7 @@ const describe = (r: (typeof rows.value)[number]) =>
           </NuxtLink>
 
           <div
-            class="relative h-7"
+            class="relative h-9"
             role="img"
             :aria-label="describe(r)"
           >
@@ -87,27 +103,33 @@ const describe = (r: (typeof rows.value)[number]) =>
               class="absolute inset-y-0 w-px bg-border"
               :style="{ left: pos(t) }"
             />
-            <!-- whisker: lowest → highest -->
-            <div
-              class="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full"
-              :style="{ ...span(r.min, r.max), background: memberColor(r.name) }"
-            />
-            <div
-              v-for="x in [r.min, r.max]"
-              :key="x"
-              class="absolute top-1/2 h-3 w-0.5 -translate-1/2 rounded-full"
-              :style="{ left: pos(x), background: memberColor(r.name) }"
-            />
-            <!-- box: middle half -->
-            <div
-              class="absolute inset-y-1 min-w-1 rounded border-2 bg-card"
-              :style="{ ...span(r.q1, r.q3), borderColor: memberColor(r.name) }"
-            />
-            <!-- median -->
-            <div
-              class="absolute inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
-              :style="{ left: pos(r.median) }"
-            />
+            <!-- violin: density of the votes, plus the median as a line across it -->
+            <svg
+              class="absolute inset-0 size-full overflow-visible"
+              viewBox="0 0 100 2"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                :d="r.path"
+                :fill="memberColor(r.name)"
+                fill-opacity="0.3"
+                :stroke="memberColor(r.name)"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                vector-effect="non-scaling-stroke"
+              />
+              <line
+                :x1="sx(r.median)"
+                :x2="sx(r.median)"
+                :y1="1 - r.medianHalf"
+                :y2="1 + r.medianHalf"
+                class="stroke-foreground"
+                stroke-width="2"
+                stroke-linecap="round"
+                vector-effect="non-scaling-stroke"
+              />
+            </svg>
             <!-- mean -->
             <div
               class="absolute top-1/2 size-2 -translate-1/2 rounded-full ring-2 ring-card"
@@ -128,10 +150,6 @@ const describe = (r: (typeof rows.value)[number]) =>
           >{{ t }}</span>
         </div>
       </div>
-
-      <p class="text-xs text-muted-foreground">
-        Blass = weniger als {{ MIN_N }} Stimmen.
-      </p>
     </CardContent>
   </Card>
 </template>
