@@ -415,9 +415,10 @@ watch(baseH, resetZoom)
         v-model="t.model.value"
         :class="wide ? 'w-full' : 'max-sm:w-full'"
       >
+        <!-- wide: two equal halves (grid), so the split lines up across both toggles -->
         <TabsList
           :aria-label="t.label"
-          :class="wide ? 'w-full' : 'max-sm:w-full'"
+          :class="wide ? 'grid w-full grid-cols-2' : 'max-sm:w-full'"
         >
           <TabsTrigger
             v-for="o in t.options"
@@ -450,8 +451,9 @@ watch(baseH, resetZoom)
         <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
           <FullscreenButton />
         </div>
-        <CardAction class="flex flex-col items-end gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:items-stretch max-sm:justify-self-stretch">
-          <ReuseToggles />
+        <!-- grid: both toggles as wide as the wider one, the options inside share it equally -->
+        <CardAction class="grid gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+          <ReuseToggles wide />
         </CardAction>
       </CardHeader>
 
@@ -460,7 +462,7 @@ watch(baseH, resetZoom)
         class="grid"
         :class="full
           ? 'min-h-0 flex-1 grid-cols-[minmax(0,1fr)_14rem] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3'
-          : 'gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]'"
+          : 'gap-4'"
       >
         <div
           class="flex flex-col gap-3"
@@ -746,12 +748,15 @@ watch(baseH, resetZoom)
           />
         </div>
 
-        <!-- ranking (fullscreen: scrolls on its own, the screen does not) -->
+        <!-- ranking only in fullscreen (scrolls on its own, the screen does not); normally just the notes below the map -->
         <div
           class="flex flex-col gap-3"
           :class="full && 'col-start-2 row-start-2 min-h-0 overflow-y-auto overscroll-contain'"
         >
-          <h3 class="text-sm font-medium">
+          <h3
+            v-if="full"
+            class="text-sm font-medium"
+          >
             {{ level === 'stadtteile' ? 'Stadtteile' : 'Stadtbezirke' }} {{ mode === 'anzahl' ? 'mit Besuchen' : 'nach Ø Bewertung' }}
           </h3>
           <p
@@ -763,7 +768,7 @@ watch(baseH, resetZoom)
           </p>
           <!-- tappable rows: no text selection / iOS callout when tapping a name on mobile -->
           <ol
-            v-else
+            v-else-if="full"
             class="flex flex-col gap-1.5 text-sm select-none [-webkit-touch-callout:none]"
           >
             <li

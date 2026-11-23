@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createReusableTemplate, useEventListener } from '@vueuse/core'
 import type { Visit } from '#shared/types'
 import { formatNumber } from '@/lib/format'
 import { groupBy, heads, mean, sum } from '@/lib/stats'
@@ -8,11 +9,11 @@ const { visits } = useStammtisch()
 /** 'abend' = the whole table per evening, 'gesamt' = all liters ever, summed */
 type Mode = 'abend' | 'kopf' | 'gesamt'
 const MODES: { key: Mode, label: string }[] = [
+  { key: 'gesamt', label: 'Gesamt' },
   { key: 'abend', label: 'Pro Abend' },
   { key: 'kopf', label: 'Pro Kopf' },
-  { key: 'gesamt', label: 'Gesamt' },
 ]
-const mode = ref<Mode>('abend')
+const mode = ref<Mode>('gesamt')
 
 const withLiter = visits.filter((v): v is Visit & { liter: number } => v.liter != null)
 const perHead = (vs: (Visit & { liter: number })[]) => vs.filter(v => heads(v) > 0).map(v => v.liter / heads(v))
@@ -99,29 +100,36 @@ const slices = computed(() => {
 })
 
 const active = ref<string | null>(null)
+
+/** mouse: the hovered slice */
+function onSliceEnter(e: PointerEvent, bier: string) {
+  if (e.pointerType === 'mouse') active.value = bier
+}
+/** touch/pen: a tap selects a slice, a tap on another slice selects that one; the same slice again or a tap anywhere else deselects */
+function onSliceTap(e: PointerEvent, bier: string) {
+  if (e.pointerType === 'mouse') return
+  e.stopPropagation()
+  active.value = active.value === bier ? null : bier
+}
+useEventListener(import.meta.client ? document : null, 'pointerup', (e: PointerEvent) => {
+  if (e.pointerType !== 'mouse' && active.value) active.value = null
+})
 const shown = computed(() => rows.value.find(r => r.bier === active.value) ?? null)
 
 const besuche = (n: number) => `${n} ${n === 1 ? 'Besuch' : 'Besuche'}`
 const liter = (x: number) => `${formatNumber(x, mode.value === 'kopf' ? 2 : 1)} l`
+
+/** fullscreen on phones, see FullscreenCard */
+const full = ref(false)
+/** tabs and legend: shown in different places in the normal view and in fullscreen */
+const [DefineTabs, ReuseTabs] = createReusableTemplate()
+const [DefineList, ReuseList] = createReusableTemplate()
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle class="text-xl">
-        Biersorten
-      </CardTitle>
-      <CardDescription>
-        <template v-if="mode === 'gesamt'">
-          Wie viel Liter haben wir insgesamt von welchem Bier getrunken?
-        </template>
-        <template v-else>
-          Wie viel Liter trinken wir im Schnitt, je nachdem welches Bier ausgeschenkt wird?
-        </template>
-      </CardDescription>
-    </CardHeader>
-
-    <CardContent class="flex flex-col gap-4">
+  <FullscreenCard v-model:full="full">
+    <!-- single root, so the page's class still lands on FullscreenCard -->
+    <DefineTabs>
       <Tabs
         v-model="mode"
         class="w-full"
@@ -140,72 +148,142 @@ const liter = (x: number) => `${formatNumber(x, mode.value === 'kopf' ? 2 : 1)} 
           </TabsTrigger>
         </TabsList>
       </Tabs>
+    </DefineTabs>
 
-      <div
-        class="flex flex-col items-center gap-6 md:flex-row md:items-start"
+    <!-- legend = the values, same order as the slices (clockwise from the top) -->
+    <!-- display only: reacts to the donut, but can't be hovered or tapped itself -->
+    <DefineList>
+      <ol
+        class="pointer-events-none grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm select-none"
+        :class="!full && 'sm:grid-cols-2'"
+      >
+        <li
+          v-for="r in rows"
+          :key="r.bier"
+          class="flex items-center gap-2 rounded-md px-2 py-1 transition-colors"
+          :class="active === r.bier ? 'bg-accent' : active != null ? 'opacity-50' : ''"
+        >
+          <span
+            class="size-3 shrink-0 rounded-sm"
+            :style="{ background: r.color }"
+            aria-hidden="true"
+          />
+          <span class="min-w-0 flex-1 truncate font-medium">{{ r.bier }}</span>
+          <span class="text-xs text-muted-foreground">{{ besuche(r.besuche) }}</span>
+          <span class="w-14 text-right font-semibold tabular-nums">{{ liter(r.liter) }}</span>
+        </li>
+      </ol>
+    </DefineList>
+
+    <!-- fullscreen: tighter, and min-h-0 + overflow-hidden so the screen itself never scrolls -->
+    <Card :class="full && 'min-h-0 gap-2 overflow-hidden py-3 sm:gap-2 sm:py-3'">
+      <CardHeader v-if="!full">
+        <CardTitle class="text-xl">
+          Biersorten
+        </CardTitle>
+        <CardDescription>
+          <template v-if="mode === 'gesamt'">
+            Wie viel Liter haben wir insgesamt von welchem Bier getrunken?
+          </template>
+          <template v-else>
+            Wie viel Liter trinken wir im Schnitt, je nachdem welches Bier ausgeschenkt wird?
+          </template>
+        </CardDescription>
+        <CardAction>
+          <FullscreenButton />
+        </CardAction>
+      </CardHeader>
+
+      <!-- fullscreen: donut on the left over both rows, tabs and the scrolling list on the right (like the Köln-Karte) -->
+      <CardContent
+        :class="full
+          ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3'
+          : 'flex flex-col gap-4'"
         @pointerleave="$event.pointerType === 'mouse' && (active = null)"
       >
-        <!-- donut, the hovered / tapped beer in the middle -->
-        <svg
-          :viewBox="`0 0 ${SIZE} ${SIZE}`"
-          class="w-full max-w-60 shrink-0 touch-manipulation select-none"
-          role="img"
-          :aria-label="`${mode === 'gesamt' ? 'Liter gesamt' : `Ø Liter ${mode === 'abend' ? 'pro Abend' : 'pro Kopf'}`} je Biersorte, ${rows.length} Sorten`"
-        >
-          <path
-            v-for="s in slices"
-            :key="s.bier"
-            :d="s.d"
-            :fill="s.color"
-            :stroke="s.color"
-            :stroke-width="s.c * 2"
-            stroke-linejoin="round"
-            class="cursor-pointer transition-opacity duration-150"
-            :opacity="active == null || active === s.bier ? 1 : 0.3"
-            @pointerenter="active = s.bier"
-          >
-            <title>{{ s.bier }}: {{ liter(s.liter) }} ({{ besuche(s.besuche) }})</title>
-          </path>
-          <text
-            :x="SIZE / 2"
-            :y="SIZE / 2 - 16"
-            text-anchor="middle"
-            class="fill-muted-foreground text-[11px]"
-          >{{ shown ? shown.bier : mode === 'gesamt' ? 'Alle Abende' : 'Ø alle Abende' }}</text>
-          <text
-            :x="SIZE / 2"
-            :y="SIZE / 2 + 10"
-            text-anchor="middle"
-            class="fill-foreground text-2xl font-semibold tabular-nums"
-          >{{ liter(shown ? shown.liter : overall) }}</text>
-          <text
-            :x="SIZE / 2"
-            :y="SIZE / 2 + 30"
-            text-anchor="middle"
-            class="fill-muted-foreground text-[11px]"
-          >{{ shown ? besuche(shown.besuche) : besuche(values(withLiter).length) }}</text>
-        </svg>
+        <ReuseTabs v-if="!full" />
 
-        <!-- legend = the values, same order as the slices (clockwise from the top) -->
-        <ol class="grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm select-none sm:grid-cols-2">
-          <li
-            v-for="r in rows"
-            :key="r.bier"
-            class="flex cursor-default items-center gap-2 rounded-md px-2 py-1 transition-colors"
-            :class="active === r.bier ? 'bg-accent' : active != null ? 'opacity-50' : ''"
-            @pointerenter="active = r.bier"
+        <div
+          v-if="full"
+          class="col-start-2 row-start-1 flex items-center gap-2"
+        >
+          <ReuseTabs />
+          <FullscreenButton />
+        </div>
+
+        <div
+          :class="full
+            ? 'col-start-1 row-span-2 row-start-1 flex min-h-0 flex-col gap-3'
+            : 'flex flex-col items-center gap-6 md:flex-row md:items-start'"
+        >
+          <CardTitle
+            v-if="full"
+            class="text-xl"
           >
-            <span
-              class="size-3 shrink-0 rounded-sm"
-              :style="{ background: r.color }"
-              aria-hidden="true"
-            />
-            <span class="min-w-0 flex-1 truncate font-medium">{{ r.bier }}</span>
-            <span class="text-xs text-muted-foreground">{{ besuche(r.besuche) }}</span>
-            <span class="w-14 text-right font-semibold tabular-nums">{{ liter(r.liter) }}</span>
-          </li>
-        </ol>
-      </div>
-    </CardContent>
-  </Card>
+            Biersorten
+          </CardTitle>
+          <!-- donut, the hovered / tapped beer in the middle; fullscreen: as big as the height allows, centred in its box -->
+          <div :class="full ? 'flex min-h-0 flex-1 items-center justify-center' : 'contents'">
+            <svg
+              :viewBox="`0 0 ${SIZE} ${SIZE}`"
+              class="shrink-0 touch-manipulation select-none"
+              :class="full ? 'aspect-square h-full max-h-full w-auto max-w-full' : 'w-full max-w-60'"
+              role="img"
+              :aria-label="`${mode === 'gesamt' ? 'Liter gesamt' : `Ø Liter ${mode === 'abend' ? 'pro Abend' : 'pro Kopf'}`} je Biersorte, ${rows.length} Sorten`"
+            >
+              <path
+                v-for="s in slices"
+                :key="s.bier"
+                :d="s.d"
+                :fill="s.color"
+                :stroke="s.color"
+                :stroke-width="s.c * 2"
+                stroke-linejoin="round"
+                class="cursor-pointer transition-opacity duration-150"
+                :opacity="active == null || active === s.bier ? 1 : 0.3"
+                @pointerenter="onSliceEnter($event, s.bier)"
+                @pointerup="onSliceTap($event, s.bier)"
+              >
+                <title>{{ s.bier }}: {{ liter(s.liter) }} ({{ besuche(s.besuche) }})</title>
+              </path>
+              <text
+                :x="SIZE / 2"
+                :y="SIZE / 2 - 16"
+                text-anchor="middle"
+                class="fill-muted-foreground text-[11px]"
+              >{{ shown ? shown.bier : mode === 'gesamt' ? 'Alle Abende' : 'Ø alle Abende' }}</text>
+              <text
+                :x="SIZE / 2"
+                :y="SIZE / 2 + 10"
+                text-anchor="middle"
+                class="fill-foreground text-2xl font-semibold tabular-nums"
+              >{{ liter(shown ? shown.liter : overall) }}</text>
+              <text
+                :x="SIZE / 2"
+                :y="SIZE / 2 + 30"
+                text-anchor="middle"
+                class="fill-muted-foreground text-[11px]"
+              >{{ shown ? besuche(shown.besuche) : besuche(values(withLiter).length) }}</text>
+            </svg>
+          </div>
+
+          <!-- normal view: the legend next to / below the donut (not on phones, the donut's middle names the tapped beer) -->
+          <div
+            v-if="!full"
+            class="w-full max-sm:hidden"
+          >
+            <ReuseList />
+          </div>
+        </div>
+
+        <!-- fullscreen: the legend scrolls on its own, the screen does not -->
+        <div
+          v-if="full"
+          class="col-start-2 row-start-2 min-h-0 overflow-y-auto overscroll-contain"
+        >
+          <ReuseList />
+        </div>
+      </CardContent>
+    </Card>
+  </FullscreenCard>
 </template>

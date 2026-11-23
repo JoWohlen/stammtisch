@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { linearFit } from '@/lib/analysis'
 import { formatDate, formatEuro } from '@/lib/format'
 import type { ScatterPoint } from '@/lib/chart'
 
@@ -22,20 +21,12 @@ const points: ScatterPoint[] = priced.map(v => ({
   to: `/brauhaus/${v.slug}?besuch=${v.nr}`,
 }))
 
-const fit = linearFit(points.map(p => p.x), points.map(p => p.y))
 const first = points[0]
 const last = points.at(-1)
-/** trend value at the first and last visit, so a single cheap/expensive night doesn't decide the headline */
-const trendAt = (x: number) => (fit ? fit.intercept + fit.slope * x : null)
-const von = first ? trendAt(first.x) : null
-const bis = last ? trendAt(last.x) : null
-const pct = von && bis ? (bis / von - 1) * 100 : null
 
 const years = first && last
   ? Array.from({ length: Math.floor(last.x) - Math.ceil(first.x) + 1 }, (_, i) => Math.ceil(first.x) + i).map(y => ({ value: y, label: String(y) }))
   : []
-
-const cents = (n: number) => `${n >= 0 ? '+' : '−'}${Math.round(Math.abs(n) * 100)} ct`
 
 /** fullscreen on phones, see FullscreenCard */
 const full = ref(false)
@@ -60,15 +51,6 @@ const full = ref(false)
         class="flex flex-col gap-4"
         :class="full && 'min-h-0 flex-1'"
       >
-        <p
-          v-if="!full && fit && von != null && bis != null && pct != null"
-          class="text-sm"
-        >
-          Laut Trend ist ein Bier von {{ formatEuro(von, true) }} auf {{ formatEuro(bis, true) }} gestiegen,
-          <span class="font-semibold">{{ cents(fit.slope) }} pro Jahr</span>
-          ({{ pct >= 0 ? '+' : '−' }}{{ Math.round(Math.abs(pct)) }} % insgesamt).
-        </p>
-
         <AnalyseScatterChart
           :points="points"
           :x-format="x => String(Math.round(x))"

@@ -50,6 +50,14 @@ const toggleNightMode = () => {
 </script>
 
 <template>
+  <!-- open menu: the page behind is dimmed (the header stays clear); a click on it closes the menu via onClickOutside -->
+  <Teleport to="body">
+    <div
+      class="fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 dark:bg-black/65"
+      :class="open ? 'opacity-100' : 'pointer-events-none opacity-0'"
+      aria-hidden="true"
+    />
+  </Teleport>
   <header
     ref="root"
     class="sticky top-0 z-50 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70"
