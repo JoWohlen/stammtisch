@@ -151,17 +151,19 @@ const [DefineList, ReuseList] = createReusableTemplate()
     </DefineTabs>
 
     <!-- legend = the values, same order as the slices (clockwise from the top) -->
-    <!-- display only: reacts to the donut, but can't be hovered or tapped itself -->
+    <!-- normal view: display only, reacts to the donut; fullscreen: hover / tap an entry to select its slice -->
     <DefineList>
       <ol
-        class="pointer-events-none grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm select-none"
-        :class="!full && 'sm:grid-cols-2'"
+        class="grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm select-none [-webkit-touch-callout:none]"
+        :class="!full && 'pointer-events-none sm:grid-cols-2'"
       >
         <li
           v-for="r in rows"
           :key="r.bier"
           class="flex items-center gap-2 rounded-md px-2 py-1 transition-colors"
-          :class="active === r.bier ? 'bg-accent' : active != null ? 'opacity-50' : ''"
+          :class="[active === r.bier ? 'bg-accent' : active != null ? 'opacity-50' : '', full && 'cursor-pointer hover:bg-accent']"
+          @pointerenter="full && onSliceEnter($event, r.bier)"
+          @pointerup="full && onSliceTap($event, r.bier)"
         >
           <span
             class="size-3 shrink-0 rounded-sm"

@@ -544,7 +544,7 @@ watch(baseH, resetZoom)
                       class="cursor-pointer stroke-foreground/30 transition-[fill-opacity]"
                       :class="fillOf(a) ? '' : 'fill-muted'"
                       :style="fillOf(a) ? { fill: fillOf(a) } : undefined"
-                      :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.6 : 1"
+                      :fill-opacity="activeNr && activeNr !== a.district.nummer ? 0.3 : 1"
                       :stroke-width="px(1)"
                       stroke-linejoin="round"
                       @pointermove="onMove($event, a)"
