@@ -86,9 +86,9 @@ const categories = b
             <div
               v-for="c in categories"
               :key="c.label"
-              class="flex flex-col justify-center rounded-md border border-amber-300 bg-background px-2.5 py-1.5 dark:border-amber-500/40"
+              class="flex flex-col items-center justify-center rounded-md border border-amber-300 bg-background px-2.5 py-1.5 dark:border-amber-500/40"
             >
-              <span class="flex items-center gap-1 truncate text-xs text-muted-foreground">
+              <span class="flex max-w-full items-center justify-center gap-1 truncate text-xs text-muted-foreground">
                 <component
                   :is="c.icon"
                   class="size-3 shrink-0"
