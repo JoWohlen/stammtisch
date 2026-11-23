@@ -107,7 +107,7 @@ const activeText = computed(() => {
         class="grid grid-cols-12 gap-0.5 sm:gap-1.5"
         role="img"
         :aria-label="`${mode === 'bewertung' ? 'Ø Bewertung' : 'Ø Mitglieder'} je Kalendermonat`"
-        @pointerleave="active = null"
+        @pointerleave="$event.pointerType === 'mouse' && (active = null)"
       >
         <div
           v-for="x in months"

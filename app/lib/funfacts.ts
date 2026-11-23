@@ -402,7 +402,7 @@ const GENERATORS: Generator[] = [
   },
   ({ visits }) => {
     const r = corr(visits.flatMap(v => (v.averages.essen != null && v.averages.service != null ? [[v.averages.essen, v.averages.service] as [number, number]] : [])))
-    return r != null && r >= 0.3 ? fact('corr-essen', 'zusammenhang', 'Wenn das Essen gut ist, finden wir meist auch den Service gut.') : null
+    return r != null && r >= 0.3 ? fact('corr-essen', 'zusammenhang', 'Wenn der Service gut ist, finden wir meist auch das Essen gut.') : null
   },
   ({ visits }) => {
     const r = corr(visits.flatMap(v => (v.kurze != null && v.biere != null ? [[v.kurze, v.biere] as [number, number]] : [])))

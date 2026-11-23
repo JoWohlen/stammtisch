@@ -130,16 +130,16 @@ const planned = computed(() => {
 
           <div class="overflow-hidden rounded-md border border-violet-300 bg-background dark:border-violet-500/40">
             <div
-              class="hidden grid-cols-[2rem_minmax(0,1fr)_6rem_4.5rem_4.5rem_4.5rem_4rem_1rem] items-center gap-3 border-b border-violet-200 px-3 py-1.5 text-xs text-muted-foreground sm:grid dark:border-violet-500/20"
+              class="hidden grid-cols-[2rem_minmax(0,1fr)_6rem_4rem_4.5rem_4.5rem_4.5rem_1rem] items-center gap-3 border-b border-violet-200 px-3 py-1.5 text-xs text-muted-foreground sm:grid dark:border-violet-500/20"
               aria-hidden="true"
             >
               <span>#</span>
               <span>Brauhaus</span>
               <span>Datum</span>
+              <span class="text-center">Gesamt</span>
               <span class="text-right">Location</span>
               <span class="text-right">Service</span>
               <span class="text-right">Essen</span>
-              <span class="text-center">Gesamt</span>
               <span />
             </div>
             <ol class="divide-y divide-violet-200 dark:divide-violet-500/20">
@@ -149,7 +149,7 @@ const planned = computed(() => {
               >
                 <NuxtLink
                   :to="`/brauhaus/${r.v.slug}`"
-                  class="group grid grid-cols-[1.5rem_minmax(0,1fr)_4rem_1rem] items-center gap-3 px-3 py-2 transition-colors hover:bg-violet-50 focus-visible:bg-violet-50 focus-visible:outline-none sm:grid-cols-[2rem_minmax(0,1fr)_6rem_4.5rem_4.5rem_4.5rem_4rem_1rem] dark:hover:bg-violet-500/10 dark:focus-visible:bg-violet-500/10"
+                  class="group grid grid-cols-[1.5rem_minmax(0,1fr)_4rem_1rem] items-center gap-3 px-3 py-2 transition-colors hover:bg-violet-50 focus-visible:bg-violet-50 focus-visible:outline-none sm:grid-cols-[2rem_minmax(0,1fr)_6rem_4rem_4.5rem_4.5rem_4.5rem_1rem] dark:hover:bg-violet-500/10 dark:focus-visible:bg-violet-500/10"
                 >
                   <span class="text-sm font-semibold text-violet-600 tabular-nums dark:text-violet-300">{{ i + 1 }}.</span>
                   <span class="flex min-w-0 flex-col">
@@ -159,14 +159,14 @@ const planned = computed(() => {
                     </span>
                   </span>
                   <span class="hidden text-xs text-muted-foreground tabular-nums sm:inline">{{ formatDate(r.v.date) }}</span>
-                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.location) }}</span>
-                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.service) }}</span>
-                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.essen) }}</span>
                   <span
                     class="rounded-md py-0.5 text-center text-sm font-semibold tabular-nums"
                     :class="scale ? 'text-black' : 'text-foreground'"
                     :style="{ backgroundColor: r.bg }"
                   >{{ formatScore(r.v.averages.gesamt) }}</span>
+                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.location) }}</span>
+                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.service) }}</span>
+                  <span class="hidden text-right text-sm tabular-nums sm:inline">{{ formatScore(r.v.averages.essen) }}</span>
                   <ChevronRight
                     class="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
                     aria-hidden="true"

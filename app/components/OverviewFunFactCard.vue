@@ -4,18 +4,14 @@ import { FUN_FACT_CATEGORY_LABEL } from '@/lib/funfacts'
 
 const { funFacts } = useStammtisch()
 
-/** server renders the first fact, the client picks a random one after hydration */
+/** starts at the first fact and steps through them in order, wrapping around after the last */
 const index = ref(0)
 const current = computed(() => funFacts[index.value])
 
 function next() {
   if (funFacts.length < 2) return
-  let i = index.value
-  while (i === index.value) i = Math.floor(Math.random() * funFacts.length)
-  index.value = i
+  index.value = (index.value + 1) % funFacts.length
 }
-
-onMounted(next)
 </script>
 
 <template>

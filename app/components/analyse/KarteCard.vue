@@ -450,7 +450,7 @@ watch(baseH, resetZoom)
         <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
           <FullscreenButton />
         </div>
-        <CardAction class="flex flex-col items-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+        <CardAction class="flex flex-col items-end gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:items-stretch max-sm:justify-self-stretch">
           <ReuseToggles />
         </CardAction>
       </CardHeader>

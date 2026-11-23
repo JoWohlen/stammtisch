@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
   collapsedText?: string
   /** whether the card can be folded (default true) */
   collapsible?: boolean
-  /** details line shows all four scores with icons: date · the sorted metric (bold) · the other three */
+  /** details line shows all four scores with icons: date · Gesamt · Location · Service · Essen, the sorted metric bold */
   scoreLine?: boolean
 }>(), { collapsible: true })
 
@@ -35,9 +35,6 @@ const sort = ref<Sort>('gesamt')
 const metric = computed<Metric>(() => (sort.value === 'datum' ? 'gesamt' : sort.value))
 
 const countText = computed(() => (typeof props.count === 'function' ? props.count(metric.value) : props.count))
-
-/** for `scoreLine`: the shown metric first, then the rest in the usual order */
-const scoreOrder = computed(() => [...SCORE_KEYS].sort((a, b) => Number(b.key === metric.value) - Number(a.key === metric.value)))
 
 /** red (worst) → amber (Ø) → green (best) over the shown metric */
 const scale = computed(() => scoreScale(props.tiles.map(t => t.scores[metric.value])))
@@ -233,12 +230,16 @@ const items = computed(() => {
                     </span>
                   </span>
                   <span
-                    class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
-                    :class="t.scored ? 'font-medium text-black/85' : 'text-muted-foreground'"
+                    class="flex items-center gap-y-1 text-xs"
+                    :class="[
+                      t.scored ? 'font-medium text-black/85' : 'text-muted-foreground',
+                      // score line: date and all four scores stay on one line, also on phones
+                      scoreLine ? 'flex-nowrap gap-x-1.5 whitespace-nowrap' : 'flex-wrap gap-x-2',
+                    ]"
                   >
                     <span>{{ formatDate(t.date) }}</span>
                     <template
-                      v-for="s in scoreLine ? scoreOrder : []"
+                      v-for="s in scoreLine ? SCORE_KEYS : []"
                       :key="s.key"
                     >
                       <span aria-hidden="true">·</span>

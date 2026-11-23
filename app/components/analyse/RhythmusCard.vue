@@ -59,7 +59,7 @@ const activeBucket = computed(() => (active.value == null ? null : buckets[activ
         class="flex h-48 items-end gap-1 pt-5 sm:gap-2"
         role="img"
         :aria-label="`Abstände zwischen ${gaps.length + 1} Stammtischen, in Wochen`"
-        @pointerleave="active = null"
+        @pointerleave="$event.pointerType === 'mouse' && (active = null)"
       >
         <div
           v-for="b in buckets"

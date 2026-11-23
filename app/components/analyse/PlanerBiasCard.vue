@@ -61,10 +61,11 @@ const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
           >
             {{ r.name }}
             <span
-              class="text-xs font-normal text-muted-foreground"
+              class="flex flex-col text-xs leading-tight font-normal text-muted-foreground"
               :title="r.geplantN < r.geplantTotal ? `${abende(r.geplantTotal - r.geplantN)} selbst nicht bewertet` : undefined"
             >
-              {{ r.geplantTotal }} geplant<template v-if="r.geplantN < r.geplantTotal"> · {{ r.geplantN }} bewertet</template>
+              <span>{{ r.geplantTotal }} geplant</span>
+              <span v-if="r.geplantN < r.geplantTotal">{{ r.geplantN }} bewertet</span>
             </span>
           </NuxtLink>
 

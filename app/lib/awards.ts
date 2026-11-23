@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { Anvil, BadgePercent, Banknote, Beer, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, Megaphone, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
+import { Anvil, BadgePercent, Banknote, Beer, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
 import { KoelnerDom, KoelschStange, KurzFrei, Kurze, StangeEuro, StangeLeer, Zapfhahn } from '@/lib/award-icons'
 import type { Category, Coords, Participant, Visit } from '#shared/types'
 import { byDate as sortByDate, CATEGORIES, heads, mean, raterNames } from '@/lib/stats'
@@ -51,6 +51,8 @@ export const MIN_MEMBER_VISITS = 5
 export const MIN_PLANNED = 2
 /** members rarely miss an evening, so Glücksbringer can't ask for as many evenings without them */
 export const MIN_GLUECK = 3
+/** share of a member's ratings that must be whole or half points for Autist */
+export const MIN_GLATT = 0.85
 
 /** Kölner Dom, for "Weit vom Dom" */
 export const DOM: Coords = { lat: 50.941320694306455, lng: 6.9582273908731676 }
@@ -62,12 +64,12 @@ const def = (d: AwardDef) => d
 export const AWARD_DEFS: AwardDef[] = [
   // ---- Brauhaus (per visit) ----
   def({ type: 'nr1', scope: 'brauhaus', label: 'Die eine Nummer 1', icon: Trophy, tone: 'good', hint: 'Beste Gesamtbewertung aller Besuche', explain: 'Der Besuch mit der höchsten Ø Gesamtbewertung aller Stammtische. Die Gesamtbewertung ist der Mittelwert aus Location, Service und Essen & Trinken.' }),
-  def({ type: 'essen+', scope: 'brauhaus', label: 'Bestes Essen', icon: Ham, tone: 'good', hint: 'Beste Bewertung für Essen & Trinken', explain: 'Der Besuch mit der höchsten Ø Bewertung in der Kategorie Essen & Trinken.' }),
-  def({ type: 'essen-', scope: 'brauhaus', label: 'Schlechtestes Essen', icon: UtensilsCrossed, tone: 'bad', hint: 'Schlechteste Bewertung für Essen & Trinken', explain: 'Der Besuch mit der niedrigsten Ø Bewertung in der Kategorie Essen & Trinken.' }),
   def({ type: 'loc+', scope: 'brauhaus', label: 'Beste Location', icon: MapPinCheck, tone: 'good', hint: 'Beste Bewertung für die Location', explain: 'Der Besuch mit der höchsten Ø Bewertung in der Kategorie Location.' }),
   def({ type: 'loc-', scope: 'brauhaus', label: 'Schlechteste Location', icon: MapPinX, tone: 'bad', hint: 'Schlechteste Bewertung für die Location', explain: 'Der Besuch mit der niedrigsten Ø Bewertung in der Kategorie Location.' }),
   def({ type: 'serv+', scope: 'brauhaus', label: 'Bester Service', icon: HandPlatter, tone: 'good', hint: 'Beste Bewertung für den Service', explain: 'Der Besuch mit der höchsten Ø Bewertung in der Kategorie Service.' }),
   def({ type: 'serv-', scope: 'brauhaus', label: 'Schlechtester Service', icon: Snail, tone: 'bad', hint: 'Schlechteste Bewertung für den Service', explain: 'Der Besuch mit der niedrigsten Ø Bewertung in der Kategorie Service.' }),
+  def({ type: 'essen+', scope: 'brauhaus', label: 'Bestes Essen', icon: Ham, tone: 'good', hint: 'Beste Bewertung für Essen & Trinken', explain: 'Der Besuch mit der höchsten Ø Bewertung in der Kategorie Essen & Trinken.' }),
+  def({ type: 'essen-', scope: 'brauhaus', label: 'Schlechtestes Essen', icon: UtensilsCrossed, tone: 'bad', hint: 'Schlechteste Bewertung für Essen & Trinken', explain: 'Der Besuch mit der niedrigsten Ø Bewertung in der Kategorie Essen & Trinken.' }),
   def({ type: 'pl', scope: 'brauhaus', label: 'Beste Preis/Leistung', icon: Scale, tone: 'good', hint: 'Niedrigster Wert € pro Kopf / Gesamt', explain: 'Der Besuch mit dem niedrigsten Preis/Leistungs-Wert: Rechnung pro Kopf geteilt durch die Ø Gesamtbewertung. Je weniger Euro pro Bewertungspunkt, desto besser.' }),
   def({ type: 'bp-', scope: 'brauhaus', label: 'Billigstes Bier', icon: PiggyBank, tone: 'good', hint: 'Niedrigster Bierpreis', explain: 'Der Besuch mit dem niedrigsten Preis für ein Bier.' }),
   def({ type: 'bp+', scope: 'brauhaus', label: 'Teuerstes Bier', icon: StangeEuro, tone: 'bad', hint: 'Höchster Bierpreis', explain: 'Der Besuch mit dem höchsten Preis für ein Bier.' }),
@@ -106,16 +108,17 @@ export const AWARD_DEFS: AwardDef[] = [
   def({ type: 'm-bier', scope: 'mitglied', label: 'Bierkönig', icon: Beer, tone: 'neutral', hint: 'Meiste Liter Bier pro Abend', explain: `Das Mitglied mit dem höchsten Ø Bieranteil pro Abend. Pro Abend wird die getrunkene Menge gleichmäßig auf alle Anwesenden (Mitglieder und Gäste) verteilt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-streng', scope: 'mitglied', label: 'Strengster Kritiker', icon: Gavel, tone: 'neutral', hint: 'Niedrigste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die niedrigsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-mild', scope: 'mitglied', label: 'Gute Seele', icon: Sparkles, tone: 'neutral', hint: 'Höchste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die höchsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
-  def({ type: 'm-eigenlob', scope: 'mitglied', label: 'Poser', icon: Megaphone, tone: 'bad', hint: 'Ist am stolzesten auf die eigenen Abende', explain: `Das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am besten bewertet. Ein bisschen Stolz auf den eigenen Abend ist ja erlaubt. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
-  def({ type: 'm-bescheiden', scope: 'mitglied', label: 'Bescheiden', icon: Wheat, tone: 'good', hint: 'Am wenigsten Eigenlob', explain: `Das Gegenteil vom Poser: das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am wenigsten hoch bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
+  def({ type: 'm-eigenlob', scope: 'mitglied', label: 'Selbstverliebt', icon: MirrorRound, tone: 'bad', hint: 'Ist am stolzesten auf die eigenen Abende', explain: `Das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am besten bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
+  def({ type: 'm-bescheiden', scope: 'mitglied', label: 'Bescheiden', icon: Wheat, tone: 'good', hint: 'Am wenigsten Eigenlob', explain: `Das Gegenteil von Selbstverliebt: das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am wenigsten hoch bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
   def({ type: 'm-flexibel', scope: 'mitglied', label: 'Flexibel', icon: Wind, tone: 'neutral', hint: 'Die eigenen Bewertungen schwanken am stärksten', explain: `Das Mitglied, dessen eigene Gesamtbewertungen von Abend zu Abend am stärksten schwanken. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-eisern', scope: 'mitglied', label: 'Eisern', icon: Anvil, tone: 'neutral', hint: 'Die eigenen Bewertungen schwanken am wenigsten', explain: `Das Gegenteil von Flexibel: das Mitglied, dessen eigene Gesamtbewertungen von Abend zu Abend am wenigsten schwanken. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-querdenker', scope: 'mitglied', label: 'Querdenker', icon: Shuffle, tone: 'neutral', hint: 'Liegt am weitesten neben dem Ø der Runde', explain: `Das Mitglied, dessen Gesamtbewertung im Schnitt am weitesten von der der anderen am selben Abend abweicht. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-herdentier', scope: 'mitglied', label: 'Herdentier', icon: Footprints, tone: 'neutral', hint: 'Liegt am dichtesten am Ø der Runde', explain: `Das Mitglied, dessen Gesamtbewertung im Schnitt am dichtesten an der der anderen am selben Abend liegt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
-  def({ type: 'm-gourmet', scope: 'mitglied', label: 'Gourmet', icon: ChefHat, tone: 'neutral', hint: 'Bewertet das Essen strenger als die anderen', explain: `Das Mitglied, das Essen & Trinken im Vergleich zu den anderen am selben Abend am strengsten bewertet. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-servicekritiker', scope: 'mitglied', label: 'Servicekritiker', icon: ConciergeBell, tone: 'neutral', hint: 'Bewertet den Service strenger als die anderen', explain: `Das Mitglied, das den Service im Vergleich zu den anderen am selben Abend am strengsten bewertet. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
+  def({ type: 'm-gourmet', scope: 'mitglied', label: 'Gourmet', icon: ChefHat, tone: 'neutral', hint: 'Bewertet das Essen strenger als die anderen', explain: `Das Mitglied, das Essen & Trinken im Vergleich zu den anderen am selben Abend am strengsten bewertet. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-notenkoenig', scope: 'mitglied', label: 'Lieblingszahl 5', icon: Star, tone: 'good', hint: 'Hat die meisten glatten 5en vergeben', explain: 'Das Mitglied, das insgesamt die meisten Bestnoten (glatte 5) vergeben hat, über alle Kategorien.' }),
   def({ type: 'm-lieblingszahl1', scope: 'mitglied', label: 'Lieblingszahl 1', icon: Bomb, tone: 'bad', hint: 'Hat die meisten glatten 1en vergeben', explain: 'Das Mitglied, das insgesamt die meisten schlechtesten Noten (glatte 1) vergeben hat, über alle Kategorien.' }),
+  def({ type: 'm-autist', scope: 'mitglied', label: 'Autist', icon: Ruler, tone: 'neutral', hint: 'Vergibt fast nur glatte oder halbe Noten', explain: `Alle Mitglieder, bei denen mindestens ${formatNumber(MIN_GLATT * 100)} % der eigenen Bewertungen glatte oder halbe Noten sind (z. B. 4 oder 3,5), über alle Kategorien. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-serie', scope: 'mitglied', label: 'Marathonläufer', icon: Flame, tone: 'good', hint: 'Längste Serie ohne Fehlen', explain: 'Das Mitglied mit den meisten Stammtischen in Folge, ohne einen einzigen zu verpassen. Die Serie muss nicht mehr laufen.' }),
   def({ type: 'm-comeback', scope: 'mitglied', label: 'Auferstanden', icon: RotateCcw, tone: 'neutral', hint: 'Längste Abwesenheit vor der Rückkehr', explain: 'Das Mitglied, das die meisten Stammtische am Stück verpasst hat und dann doch wiederkam.' }),
   def({ type: 'm-entdecker', scope: 'mitglied', label: 'Entdecker', icon: Compass, tone: 'good', hint: 'Hat die meisten neuen Brauhäuser geplant', explain: 'Das Mitglied, das die meisten Abende in Brauhäusern geplant hat, in denen wir vorher noch nie waren. Teilt sich mehr als die Hälfte der Planer den ersten Platz, wird der Award nicht vergeben.' }),
@@ -208,12 +211,12 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
     { type: 'nr1', get: v => v.averages.gesamt, dir: 'max', fmt: score },
     { type: 'bier', get: v => v.liter, dir: 'max', fmt: liter },
     { type: 'geld', get: pricePerHead, dir: 'max', fmt: x => `${euro(x)} pro Kopf` },
-    { type: 'essen+', get: v => v.averages.essen, dir: 'max', fmt: score },
-    { type: 'essen-', get: v => v.averages.essen, dir: 'min', fmt: score },
     { type: 'loc+', get: v => v.averages.location, dir: 'max', fmt: score },
     { type: 'loc-', get: v => v.averages.location, dir: 'min', fmt: score },
     { type: 'serv+', get: v => v.averages.service, dir: 'max', fmt: score },
     { type: 'serv-', get: v => v.averages.service, dir: 'min', fmt: score },
+    { type: 'essen+', get: v => v.averages.essen, dir: 'max', fmt: score },
+    { type: 'essen-', get: v => v.averages.essen, dir: 'min', fmt: score },
     { type: 'kurze', get: v => v.kurze, dir: 'max', fmt: x => `${formatNumber(x)} Kurze` },
     { type: 'gross', get: v => heads(v) || null, dir: 'max', fmt: people },
     { type: 'klein', get: v => heads(v) || null, dir: 'min', fmt: people },
@@ -348,6 +351,10 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       }
     }
 
+    // every single category vote, for Autist
+    const votes = attended.flatMap(v => CATEGORIES.map(c => v.ratings[c][name]).filter((x): x is number => x != null))
+    const glatt = enough && votes.length ? votes.filter(x => Math.abs(x * 2 - Math.round(x * 2)) < EPS).length / votes.length : null
+
     const priced = planned.map(pricePerHead).filter((x): x is number => x != null)
     const without = byDate.filter(v => v.averages.gesamt != null && !raterNames(v).has(name))
     const withMe = attended.filter(v => v.averages.gesamt != null)
@@ -377,6 +384,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       neu: planned.filter(v => newBrauhaus.has(v.nr)).length,
       planerPreis: priced.length >= MIN_PLANNED ? mean(priced) : null,
       glueck,
+      glatt,
     }]
   })
   type S = typeof stats[number]
@@ -413,10 +421,11 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
   give('m-fleissig', fleissig.filter(e => e.item.zuletztGeplant === latest), x => `${formatNumber(x)} Abende geplant`)
   give('m-querdenker', extreme(stats, s => s.abweichung, 'max'), x => `± ${formatNumber(x, 2)} Punkte`)
   give('m-herdentier', extreme(stats, s => s.abweichung, 'min'), x => `± ${formatNumber(x, 2)} Punkte`)
-  give('m-gourmet', positive('min', s => s.essen), x => `${signed(x)} Punkte beim Essen`)
   give('m-servicekritiker', positive('min', s => s.service), x => `${signed(x)} Punkte beim Service`)
+  give('m-gourmet', positive('min', s => s.essen), x => `${signed(x)} Punkte beim Essen`)
   give('m-notenkoenig', positive('max', s => s.fuenfer), x => `${formatNumber(x)}× die 5`)
   give('m-lieblingszahl1', positive('max', s => s.einser), x => `${formatNumber(x)}× die 1`)
+  give('m-autist', stats.flatMap(s => (s.glatt != null && s.glatt >= MIN_GLATT - EPS ? [{ item: s, x: s.glatt }] : [])), x => `${formatNumber(x * 100)} % glatt oder halb`)
   give('m-serie', positive('max', s => s.serie), x => `${formatNumber(x)} in Folge`)
   give('m-comeback', positive('max', s => s.comeback), x => `nach ${formatNumber(x)} verpassten Abenden`)
   // planning rotates and nearly every evening is somewhere new: a tie among most planners says nothing
