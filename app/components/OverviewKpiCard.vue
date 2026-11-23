@@ -34,7 +34,7 @@ const categories = b
   ? [
       { label: 'Location', icon: MapPin, value: b.location },
       { label: 'Service', icon: Handshake, value: b.service },
-      { label: 'Essen/Trinken', icon: Utensils, value: b.essen },
+      { label: 'Essen', icon: Utensils, value: b.essen },
     ]
   : []
 </script>
