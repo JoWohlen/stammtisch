@@ -187,7 +187,7 @@ const liter = (x: number) => `${formatNumber(x, mode.value === 'kopf' ? 2 : 1)} 
         </svg>
 
         <!-- legend = the values, same order as the slices (clockwise from the top) -->
-        <ol class="grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm sm:grid-cols-2">
+        <ol class="grid w-full grid-cols-1 gap-x-6 gap-y-0.5 text-sm select-none sm:grid-cols-2">
           <li
             v-for="r in rows"
             :key="r.bier"

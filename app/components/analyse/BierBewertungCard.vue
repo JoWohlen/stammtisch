@@ -72,18 +72,6 @@ const MIN_N = 2
           <span class="text-right text-sm font-semibold tabular-nums">{{ formatScore(r.score) }}</span>
         </li>
       </ol>
-
-      <!-- axis -->
-      <div class="grid grid-cols-[7rem_1fr_3rem] gap-3 sm:grid-cols-[10rem_1fr_3.5rem]">
-        <div class="relative col-start-2 h-4 text-[11px] text-muted-foreground tabular-nums">
-          <span
-            v-for="t in ticks"
-            :key="t"
-            class="absolute -translate-x-1/2"
-            :style="{ left: pos(t) }"
-          >{{ formatScore(t) }}</span>
-        </div>
-      </div>
     </CardContent>
   </Card>
 </template>

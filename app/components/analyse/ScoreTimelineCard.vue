@@ -37,8 +37,12 @@ const avg = computed(() => bars.value.reduce((s, b) => s + b.value, 0) / Math.ma
   <FullscreenCard v-model:full="full">
     <!-- single root, so the page's class still lands on FullscreenCard -->
     <DefineTabs>
-      <Tabs v-model="selected">
-        <TabsList>
+      <!-- full card width below the title; compact next to the title in fullscreen -->
+      <Tabs
+        v-model="selected"
+        :class="!full && 'w-full'"
+      >
+        <TabsList :class="!full && 'w-full'">
           <TabsTrigger
             v-for="c in CATS"
             :key="c.key"
