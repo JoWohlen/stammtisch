@@ -14,6 +14,7 @@ const detailRoutes = (): string[] => {
     '/analyse',
     '/awards',
     '/satzung',
+    '/teilen',
     ...new Set(visits.map(v => `/brauhaus/${v.slug}`)),
     ...participants.map(p => `/teilnehmer/${p.slug}`),
   ]

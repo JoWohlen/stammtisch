@@ -59,8 +59,6 @@ const restaurants: Restaurant[] = [...groupBy(visits, v => v.slug).values()].map
 
 /** only restaurants inside Cologne count */
 const inKoeln = restaurants.filter(r => r.stadtteil)
-const ausserhalb = restaurants.filter(r => r.coords && !r.stadtteil)
-const ohneKoordinaten = restaurants.filter(r => !r.coords)
 
 /* ---------- geometry ---------- */
 
@@ -390,6 +388,7 @@ const rotated = ref(false)
 
 /** the Gliederung/Färbung toggles: in the header normally, next to the map in fullscreen */
 const [DefineToggles, ReuseToggles] = createReusableTemplate<{ wide?: boolean, only?: number }>()
+const [DefineLegend, ReuseLegend] = createReusableTemplate<{ cls?: string, stretch?: boolean }>()
 
 /** fullscreen: the map takes the biggest size that fits the space left of the list (no vertical scrolling) */
 const mapArea = ref<HTMLElement | null>(null)
@@ -432,6 +431,49 @@ watch(baseH, resetZoom)
       </Tabs>
     </DefineToggles>
 
+    <!-- colour scale: under the tabs on phones, under the map otherwise -->
+    <!-- stretch: the scale fills the row up to the right edge -->
+    <DefineLegend v-slot="{ cls, stretch }">
+      <div
+        class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"
+        :class="cls"
+      >
+        <!-- same bar as the Ø scale, but in the map's steps -->
+        <span
+          v-if="mode === 'anzahl' && bins.length"
+          class="inline-flex items-center gap-1.5 tabular-nums"
+          :class="stretch && 'flex-1'"
+        >
+          {{ bins[0]!.min }}
+          <span
+            class="flex h-3 overflow-hidden rounded-sm"
+            :class="stretch ? 'flex-1' : 'w-20'"
+          >
+            <span
+              v-for="b in bins"
+              :key="b.label"
+              class="flex-1"
+              :style="{ background: b.color }"
+              :title="`${b.label} ${b.max === 1 ? 'Brauhaus' : 'Brauhäuser'}`"
+            />
+          </span>
+          {{ bins.at(-1)!.max }}
+          <span class="text-muted-foreground">Brauhäuser</span>
+        </span>
+        <span
+          v-if="mode !== 'anzahl' && scoreRange"
+          class="inline-flex items-center gap-1.5 tabular-nums"
+          :class="stretch && 'flex-1'"
+        >
+          Ø {{ formatScore(scoreRange.min) }}
+          <span
+            class="h-3 rounded-sm"
+            :class="stretch ? 'flex-1' : 'w-20'"
+            :style="{ background: gradient }"
+          />
+          {{ formatScore(scoreRange.max) }}        </span>
+      </div>
+    </DefineLegend>
     <!-- fullscreen: tighter, and min-h-0 + overflow-hidden so the screen itself never scrolls -->
     <Card :class="full && 'min-h-0 gap-2 overflow-hidden py-3 sm:gap-2 sm:py-3'">
       <!-- fullscreen: no header; the title sits above the map, so the right column starts at the very top -->
@@ -441,20 +483,30 @@ watch(baseH, resetZoom)
         </CardTitle>
         <CardDescription class="max-sm:col-start-1">
           <template v-if="mode === 'anzahl'">
-            In welchen Vierteln waren wir schon? Je dunkler, desto mehr verschiedene Brauhäuser haben wir dort besucht.
+            Wo waren wir schon? Je dunkler, desto mehr Brauhäuser.
           </template>
           <template v-else>
-            Wo schmeckt's am besten? Je dunkler, desto höher die Ø Gesamtbewertung der Brauhäuser dort (jedes Brauhaus zählt einmal).
+            Wo schmeckt's am besten? Je dunkler, desto besser die Ø Bewertung.
           </template>
-          Brauhäuser außerhalb der Stadtgrenze zählen nicht mit.
         </CardDescription>
         <div class="col-start-2 row-start-1 justify-self-end sm:hidden">
           <FullscreenButton />
         </div>
         <!-- grid: both toggles as wide as the wider one, the options inside share it equally -->
-        <CardAction class="grid gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
-          <ReuseToggles wide />
+        <!-- desktop: the two toggles side by side, level with the title, the scale below them -->
+        <CardAction class="flex flex-col gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-3 max-sm:mt-2 max-sm:justify-self-stretch">
+          <div class="grid gap-2 sm:auto-cols-fr sm:grid-flow-col">
+            <ReuseToggles :wide="true" />
+          </div>
+          <ReuseLegend
+            cls="max-sm:hidden"
+            :stretch="true"
+          />
         </CardAction>
+        <ReuseLegend
+          cls="col-span-2 row-start-4 mt-1 sm:hidden"
+          :stretch="true"
+        />
       </CardHeader>
 
       <!-- fullscreen: map on the left over both rows, toggles and list on the right -->
@@ -468,12 +520,16 @@ watch(baseH, resetZoom)
           class="flex flex-col gap-3"
           :class="full && 'row-span-2 min-h-0'"
         >
-          <CardTitle
+          <!-- fullscreen header: title left, scale right -->
+          <div
             v-if="full"
-            class="text-xl"
+            class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
           >
-            Köln-Karte
-          </CardTitle>
+            <CardTitle class="text-xl">
+              Köln-Karte
+            </CardTitle>
+            <ReuseLegend cls="justify-end" />
+          </div>
           <div
             ref="mapArea"
             :class="full && 'flex min-h-0 flex-1 justify-center'"
@@ -601,8 +657,8 @@ watch(baseH, resetZoom)
                   />
                 </g>
 
-                <!-- restaurants -->
-                <g class="pointer-events-none">
+                <!-- restaurants (not on phones: the map is too small, the dots hide the colours) -->
+                <g class="pointer-events-none max-sm:hidden">
                   <circle
                     v-for="d in dots"
                     :key="d.r.slug"
@@ -686,49 +742,6 @@ watch(baseH, resetZoom)
               </div>
             </div>
           </div>
-
-          <!-- legend -->
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            <span class="inline-flex items-center gap-1.5">
-              <span class="size-3 rounded-sm border bg-muted" /> {{ mode === 'anzahl' ? '0' : 'keine Bewertung' }}
-            </span>
-            <template v-if="mode === 'anzahl'">
-              <span
-                v-for="b in bins"
-                :key="b.label"
-                class="inline-flex items-center gap-1.5 tabular-nums"
-              >
-                <span
-                  class="size-3 rounded-sm"
-                  :style="{ background: b.color }"
-                /> {{ b.label }}
-              </span>
-            </template>
-            <span
-              v-else-if="scoreRange"
-              class="inline-flex items-center gap-1.5 tabular-nums"
-            >
-              Ø {{ formatScore(scoreRange.min) }}
-              <span
-                class="h-3 w-20 rounded-sm"
-                :style="{ background: gradient }"
-              />
-              {{ formatScore(scoreRange.max) }}
-              <span class="text-muted-foreground">(Mitte = Ø {{ formatScore(scoreRange.avg) }})</span>
-            </span>
-            <span class="inline-flex items-center gap-1.5">
-              <span class="size-2.5 rounded-full bg-foreground" /> Brauhaus
-            </span>
-            <!-- fullscreen: self-explanatory, room is short -->
-            <template v-if="!full">
-              <span class="inline-flex items-center gap-1.5">
-                <span class="h-0.5 w-4 bg-foreground/70" /> Bezirksgrenze
-              </span>
-              <span class="inline-flex items-center gap-1.5">
-                <span class="h-1.5 w-4 rounded-full bg-[oklch(0.42_0.12_255)] dark:bg-[oklch(0.5_0.13_255)]" /> Rhein
-              </span>
-            </template>
-          </div>
         </div>
 
         <div
@@ -737,13 +750,13 @@ watch(baseH, resetZoom)
         >
           <div class="flex items-center gap-2">
             <ReuseToggles
-              wide
+              :wide="true"
               :only="0"
             />
             <FullscreenButton />
           </div>
           <ReuseToggles
-            wide
+            :wide="true"
             :only="1"
           />
         </div>
@@ -788,16 +801,6 @@ watch(baseH, resetZoom)
               <span class="tabular-nums">{{ mode === 'anzahl' ? a.restaurants.length : formatScore(a.score) }}</span>
             </li>
           </ol>
-          <p
-            v-if="!full"
-            class="text-xs text-muted-foreground"
-          >
-            {{ plural(inKoeln.length) }} in Köln<template v-if="ausserhalb.length">
-              · {{ ausserhalb.length }} außerhalb ({{ ausserhalb.map(r => r.name).join(', ') }})
-            </template><template v-if="ohneKoordinaten.length">
-              · {{ ohneKoordinaten.length }} ohne Koordinaten
-            </template>
-          </p>
           <!-- OSM attribution stays, also in fullscreen -->
           <p class="text-xs text-muted-foreground">
             Rhein: ©

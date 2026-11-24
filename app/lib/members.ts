@@ -1,17 +1,5 @@
 import data from '../../data/stammtisch.json'
-
-/** Distinct hues, readable on light and dark backgrounds. Order = participant order. */
-const PALETTE = [
-  '#2563eb', // blue
-  '#16a34a', // green
-  '#dc2626', // red
-  '#9333ea', // purple
-  '#ea580c', // orange
-  '#0891b2', // cyan
-  '#db2777', // pink
-  '#65a30d', // lime
-  '#ca8a04', // yellow
-]
+import { MEMBER_PALETTE as PALETTE } from './member-palette'
 
 const colors = new Map(data.participants.map((p, i) => [p.name, PALETTE[i % PALETTE.length]!]))
 

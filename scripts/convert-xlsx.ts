@@ -1,15 +1,20 @@
 /**
  * Converts data/Stammtisch.xlsx into data/stammtisch.json.
  * Runs automatically before dev/build/generate (see package.json).
+ * Sanity checks: see scripts/checks.ts, errors stop the build.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
 import type { Category, Coords, KoelnGeo, Lage, Participant, ScoreMap, StammtischData, Visit } from '../shared/types'
 import { contains } from '../app/lib/geo'
+import { AVG_TOLERANCE, checkVisits, Report, VOTE_MAX, VOTE_MIN } from './checks'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const SRC = `${root}data/Stammtisch.xlsx`
+// `tsx scripts/convert-xlsx.ts [file.xlsx] [--check]`: --check only validates, writes nothing
+const args = process.argv.slice(2)
+const CHECK_ONLY = args.includes('--check')
+const SRC = args.find(a => !a.startsWith('--')) ?? `${root}data/Stammtisch.xlsx`
 const OUT = `${root}data/stammtisch.json`
 const GEO = `${root}data/koeln-geo.json`
 
@@ -47,16 +52,49 @@ export function slugify(s: string): string {
 const excelDate = (serial: number): string =>
   new Date(Math.round((serial - 25569) * 86400 * 1000)).toISOString().slice(0, 10)
 
-/** Returns the header row and the data rows below it (rows with a non-empty "Brauhaus"). */
-function readTable(wb: XLSX.WorkBook, sheet: string): { header: string[], rows: Row[] } {
+const report = new Report()
+
+/** a cell that should hold a number: empty/"-" → null, text or an Excel error → error, negative → error */
+function numCell(v: Cell, label: string, at: string): number | null {
+  if (v == null || clean(v) === '' || clean(v) === '-') return null
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    report.error(at, `${label} "${clean(v)}" ist keine Zahl (als Text eingetragen? Komma statt Punkt?)`)
+    return null
+  }
+  if (v < 0) report.error(at, `${label} ist negativ (${v})`)
+  return v
+}
+
+interface Table {
+  header: string[]
+  /** rows with a non-empty "Brauhaus" */
+  rows: Row[]
+  /** Excel row number of each entry in `rows` */
+  lines: number[]
+  /** rows without a Brauhaus name, with their Excel row number */
+  unnamed: { row: Row, line: number }[]
+}
+
+/** Returns the header row and the data rows below it. */
+function readTable(wb: XLSX.WorkBook, sheet: string): Table {
   const ws = wb.Sheets[sheet]
   if (!ws) throw new Error(`Sheet "${sheet}" not found`)
-  const all = XLSX.utils.sheet_to_json<Row>(ws, { header: 1, defval: null, raw: true })
+  const first = XLSX.utils.decode_range(ws['!ref'] ?? 'A1').s.r + 1
+  const all = XLSX.utils.sheet_to_json<Row>(ws, { header: 1, defval: null, raw: true, blankrows: true })
   const h = all.findIndex(r => clean(r[0]) === 'Brauhaus')
   if (h < 0) throw new Error(`No "Brauhaus" header row in sheet "${sheet}"`)
   const header = all[h]!.map(clean)
-  const rows = all.slice(h + 1).filter(r => clean(r[0]) !== '' && !clean(r[0]).startsWith('#'))
-  return { header, rows }
+  const t: Table = { header, rows: [], lines: [], unnamed: [] }
+  all.slice(h + 1).forEach((r, i) => {
+    const name = clean(r[0])
+    const line = first + h + 1 + i
+    if (name === '') t.unnamed.push({ row: r, line })
+    else if (!name.startsWith('#')) {
+      t.rows.push(r)
+      t.lines.push(line)
+    }
+  })
+  return t
 }
 
 /** Header names (lowercase) accepted for the coordinates column (optional). */
@@ -129,6 +167,21 @@ function main() {
     coords: optCol(H, ...COORD_HEADERS),
     adresse: optCol(H, 'adresse'),
     website: optCol(H, 'website', 'webseite', 'homepage'),
+    // only used for cross-checks
+    brauhaus2: H.findIndex((h, i) => h === 'Brauhaus' && i > 0),
+    check: optCol(H, 'check'),
+    avg: {
+      location: optCol(H, 'avg location'),
+      service: optCol(H, 'avg service'),
+      essen: optCol(H, 'avg essen/ trinken', 'avg essen/trinken', 'avg essen'),
+    } as Record<Category, number>,
+    avgGesamt: optCol(H, 'avg gesamt'),
+  }
+
+  // a row someone filled in but forgot the name: would silently disappear
+  const filled = [c.mitglieder, c.rechnung, c.liter, c.datum]
+  for (const { row, line } of general.unnamed) {
+    if (filled.some(i => typeof row[i] === 'number')) report.error(`General, Zeile ${line}`, 'Besuch ohne Brauhaus-Namen, die Zeile wird ignoriert')
   }
 
   const geo = JSON.parse(readFileSync(GEO, 'utf8')) as KoelnGeo
@@ -143,27 +196,45 @@ function main() {
       const t = readTable(wb, sheet)
       // rater columns: everything between "Brauhaus" and "AVG"
       const raters = t.header.slice(1, col(t.header, 'AVG'))
-      return [cat, { raters, rows: t.rows }]
+      const seen = new Set<string>()
+      raters.forEach((name, j) => {
+        const p = person(name)
+        if (!p) report.error(`${sheet}, Spalte ${XLSX.utils.encode_col(j + 1)}`, 'Bewerter-Spalte ohne Namen')
+        else if (seen.has(p)) report.error(`${sheet}`, `Bewerter "${p}" hat zwei Spalten`)
+        else seen.add(p)
+      })
+      for (const { row, line } of t.unnamed) {
+        if (raters.some((_, j) => clean(row[j + 1]) !== '')) report.error(`${sheet}, Zeile ${line}`, 'Bewertungen ohne Brauhaus-Namen, die Zeile wird ignoriert')
+      }
+      if (t.rows.length > general.rows.length) {
+        report.error(sheet, `${t.rows.length} Zeilen, aber General hat nur ${general.rows.length} (zuerst fehlend: "${clean(t.rows[general.rows.length]![0])}")`)
+      }
+      return [cat, { raters, rows: t.rows, lines: t.lines, avg: col(t.header, 'AVG'), count: optCol(t.header, 'count') }]
     }),
-  ) as Record<Category, { raters: string[], rows: Row[] }>
+  ) as Record<Category, { raters: string[], rows: Row[], lines: number[], avg: number, count: number }>
 
   const people = new Set<string>()
 
   const visits: Visit[] = general.rows.map((r, i) => {
     const brauhaus = clean(r[c.brauhaus])
+    const at = `General, Zeile ${general.lines[i]} (${brauhaus})`
+    const n = (idx: number, label: string) => numCell(r[idx], label, at)
     const ratings = {} as Record<Category, ScoreMap>
     const catAvg = {} as Record<Category, number | null>
 
     for (const cat of Object.keys(RATING_SHEETS) as Category[]) {
-      const { raters, rows } = ratingTables[cat]
+      const sheet = RATING_SHEETS[cat]
+      const { raters, rows, lines, avg, count } = ratingTables[cat]
       const row = rows[i]
       if (!row || clean(row[0]) !== brauhaus) {
-        throw new Error(`Row ${i + 1} in ${RATING_SHEETS[cat]} is "${clean(row?.[0] ?? null)}", expected "${brauhaus}"`)
+        throw new Error(`Row ${i + 1} in ${sheet} is "${clean(row?.[0] ?? null)}", expected "${brauhaus}"`)
       }
+      const rAt = `${sheet}, Zeile ${lines[i]} (${brauhaus})`
       const scores: ScoreMap = {}
       raters.forEach((name, j) => {
-        const v = num(row[j + 1])
         const p = person(name)
+        const v = numCell(row[j + 1], `Bewertung von ${p ?? '?'}`, rAt)
+        if (v != null && (v < VOTE_MIN || v > VOTE_MAX)) report.error(rAt, `${p} hat ${v} vergeben, erlaubt sind ${VOTE_MIN}–${VOTE_MAX}`)
         if (v != null && p) {
           scores[p] = v
           people.add(p)
@@ -172,33 +243,58 @@ function main() {
       ratings[cat] = scores
       // rounded like the AVG cells in the xlsx, so Gesamt matches Excel
       catAvg[cat] = round2(mean(Object.values(scores)))
+
+      // Excel's cached results: differ when a formula range wasn't extended to a new row/column
+      const xAvg = num(row[avg])
+      if (catAvg[cat] != null && (xAvg == null || Math.abs(xAvg - catAvg[cat]!) > AVG_TOLERANCE)) {
+        report.warn(rAt, `AVG in Excel ist ${clean(row[avg]) || 'leer'}, berechnet ${catAvg[cat]} (Formelbereich prüfen)`, 'excel-avg', num(r[c.nr]) ?? undefined)
+      }
+      const xCount = count >= 0 ? num(row[count]) : null
+      if (xCount != null && xCount !== Object.keys(scores).length) {
+        report.warn(rAt, `Count in Excel ist ${xCount}, aber ${Object.keys(scores).length} Bewertungen eingetragen (Formelbereich prüfen)`, 'excel-count', num(r[c.nr]) ?? undefined)
+      }
+      const gAvg = c.avg[cat] >= 0 ? num(r[c.avg[cat]]) : null
+      if (gAvg != null && catAvg[cat] != null && Math.abs(gAvg - catAvg[cat]!) > AVG_TOLERANCE) {
+        report.warn(at, `${H[c.avg[cat]]} ist ${gAvg}, im Blatt ${sheet} ${catAvg[cat]}`, 'excel-avg-general', num(r[c.nr]) ?? undefined)
+      }
     }
+    if (c.brauhaus2 >= 0 && clean(r[c.brauhaus2]) && clean(r[c.brauhaus2]) !== brauhaus) {
+      report.warn(at, `zweite Brauhaus-Spalte sagt "${clean(r[c.brauhaus2])}"`, 'brauhaus-spalte', num(r[c.nr]) ?? undefined)
+    }
+    const check = c.check >= 0 ? clean(r[c.check]) : '✔'
+    if (check && check !== '✔') report.warn(at, `Spalte Check zeigt "${check}"`, 'excel-check', num(r[c.nr]) ?? undefined)
 
     const cats = Object.values(catAvg).filter((x): x is number => x != null)
     const gesamt = cats.length === 3 ? round2(mean(cats)) : null
-    const rechnung = num(r[c.rechnung])
-    const mitglieder = num(r[c.mitglieder])
-    const gaeste = num(r[c.gaeste])
+    const rechnung = n(c.rechnung, 'Rechnung')
+    const mitglieder = n(c.mitglieder, 'Mitglieder')
+    const gaeste = n(c.gaeste, 'Gäste')
     const heads = (mitglieder ?? 0) + (gaeste ?? 0)
     const avgRechnung = rechnung != null && heads > 0 ? round2(rechnung / heads) : null
-    const datum = num(r[c.datum])
-    if (datum == null) throw new Error(`Visit "${brauhaus}" has no date`)
+    const datum = n(c.datum, 'Datum')
+    if (datum == null && clean(r[c.datum]) === '') report.error(at, 'kein Datum')
+    const gesamtX = c.avgGesamt >= 0 ? num(r[c.avgGesamt]) : null
     const point = coords(opt(r, c.coords), brauhaus)
+    const nr = n(c.nr, 'Nr') ?? i + 1
+    if (Object.values(catAvg).every(x => x != null) && gesamtX != null) {
+      const g = round2(mean(Object.values(catAvg) as number[]))!
+      if (Math.abs(gesamtX - g) > AVG_TOLERANCE) report.warn(at, `AVG Gesamt ist ${gesamtX}, berechnet ${g}`, 'excel-avg-general', nr)
+    }
 
     return {
-      nr: num(r[c.nr]) ?? i + 1,
-      date: excelDate(datum),
+      nr,
+      date: datum == null ? '0000-00-00' : excelDate(datum),
       brauhaus,
       slug: slugify(brauhaus),
       bier: clean(r[c.bier]) || null,
       mitglieder,
       gaeste,
       rechnung,
-      biere: num(r[c.biere]),
-      liter: num(r[c.liter]),
-      bierpreis: num(r[c.bierpreis]),
+      biere: n(c.biere, 'Bier (Anzahl)'),
+      liter: n(c.liter, 'Liter Bier'),
+      bierpreis: n(c.bierpreis, 'Bierpreis'),
       // an empty Kurze field means none were drunk
-      kurze: num(r[c.kurze]) ?? 0,
+      kurze: n(c.kurze, 'Kurze') ?? 0,
       planer: person(r[c.planer]),
       coords: point,
       lage: lage(point),
@@ -218,6 +314,18 @@ function main() {
   visits.sort((a, b) => a.date.localeCompare(b.date) || a.nr - b.nr)
 
   const participants: Participant[] = [...people].map(name => ({ name, slug: slugify(name) }))
+
+  checkVisits(visits, [...people], report)
+  report.print()
+  if (report.hasErrors) {
+    console.error('\n✖ data/stammtisch.json wurde nicht aktualisiert. Bitte die Fehler in der xlsx beheben.')
+    process.exit(1)
+  }
+
+  if (CHECK_ONLY) {
+    console.log(`✔ ${visits.length} Besuche, ${participants.length} Mitglieder, keine Fehler`)
+    return
+  }
 
   const data: StammtischData = { generatedAt: new Date().toISOString(), visits, participants }
   writeFileSync(OUT, `${JSON.stringify(data, null, 2)}\n`)

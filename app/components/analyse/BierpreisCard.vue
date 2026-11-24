@@ -59,6 +59,7 @@ const full = ref(false)
           x-label="Datum"
           y-label="Bierpreis"
           :full="full"
+          start-at-end
           :label="`Bierpreis von ${points.length} Besuchen über die Zeit`"
         />
 

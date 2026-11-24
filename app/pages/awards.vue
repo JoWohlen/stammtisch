@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ChevronDown, Store, Users } from '@lucide/vue'
-import { AWARD_DEFS, type AwardDef, type AwardScope, type AwardTone } from '@/lib/awards'
+import { AWARD_DEFS, type AwardDef, type AwardScope } from '@/lib/awards'
 import type { Component } from 'vue'
 import { formatDate } from '@/lib/format'
+import { TONE_COLOR } from '@/lib/score-color'
 
 useHead({ title: 'Awards · Stammtisch-Tracker' })
 
@@ -19,12 +20,6 @@ const sections = SECTIONS.map(s => ({
     .map(d => ({ def: d, mentions: getAwardMentions(d.type) })),
 }))
 const shown = new Set(sections.flatMap(s => s.awards.map(a => a.def.type)))
-
-const ICON_TONE: Record<AwardTone, string> = {
-  good: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  bad: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
-  neutral: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-}
 
 /** award opened via #type (link from an award badge) gets highlighted and its list unfolded */
 const route = useRoute()
@@ -104,8 +99,8 @@ const setOpen = (d: AwardDef, open: boolean) => {
           <CardHeader>
             <CardTitle class="flex items-center gap-3 text-lg">
               <span
-                class="grid size-9 shrink-0 place-items-center rounded-lg"
-                :class="ICON_TONE[d.tone]"
+                class="grid size-9 shrink-0 place-items-center rounded-lg text-black"
+                :style="{ background: TONE_COLOR[d.tone] }"
               >
                 <component
                   :is="d.icon"

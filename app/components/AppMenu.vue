@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Award, Beer, ChartLine, ChevronDown, House, Menu, Moon, ScrollText, Search, Settings, X } from '@lucide/vue'
+import { Award, Beer, ChartLine, ChevronDown, House, Menu, Moon, QrCode, ScrollText, Search, Settings, X } from '@lucide/vue'
 import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
 
 const pages = [
@@ -8,6 +8,7 @@ const pages = [
   { to: '/satzung', label: 'Satzung', icon: ScrollText },
   { to: '/analyse', label: 'Analyse', icon: ChartLine },
   { to: '/awards', label: 'Awards', icon: Award },
+  { to: '/teilen', label: 'Teilen', icon: QrCode },
 ]
 
 const open = ref(false)
@@ -34,18 +35,9 @@ const nightMode = computed({
   set: (v: boolean) => (mode.value = v ? 'dark' : 'light'),
 })
 
-/** after a setting changes, fold the menu away once the switch has visibly moved */
-const SETTING_CLOSE_DELAY = 250
-let closeTimer: ReturnType<typeof setTimeout> | undefined
-const closeSoon = () => {
-  clearTimeout(closeTimer)
-  closeTimer = setTimeout(close, SETTING_CLOSE_DELAY)
-}
-onBeforeUnmount(() => clearTimeout(closeTimer))
-
+/** changing a setting keeps the menu open, so several can be changed in a row */
 const toggleNightMode = () => {
   nightMode.value = !nightMode.value
-  closeSoon()
 }
 </script>
 

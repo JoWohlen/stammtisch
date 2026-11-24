@@ -72,8 +72,8 @@ const planned = computed(() => {
           :class="spaeterDabei ? 'col-span-2 lg:col-span-1' : ''"
         >
           <div class="flex flex-col text-xs whitespace-nowrap text-zinc-400 tabular-nums dark:text-zinc-500">
-            <span>{{ s.besuche }}/{{ s.besucheSeitStart }} · {{ pct(s.besuche, s.besucheSeitStart) }} seit Start</span>
-            <span v-if="spaeterDabei">{{ s.besuche }}/{{ s.besucheSeitBeitritt }} · {{ pct(s.besuche, s.besucheSeitBeitritt) }} ab {{ formatDate(s.ersterBesuch) }}</span>
+            <span>{{ pct(s.besuche, s.besucheSeitStart) }} seit Start</span>
+            <span v-if="spaeterDabei">{{ pct(s.besuche, s.besucheSeitBeitritt) }} ab {{ formatDate(s.ersterBesuch) }}</span>
           </div>
         </StatTile>
         <!-- otherwise the last tile fills the odd slot on mobile -->
