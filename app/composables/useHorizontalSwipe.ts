@@ -15,10 +15,18 @@ function handlesTouch(el: Element | null): boolean {
   return false
 }
 
+/** focused element that uses the arrow keys itself (text fields, tabs, sliders, side-scrolling areas) */
+function handlesArrows(el: Element | null): boolean {
+  if (!el || el === document.body) return false
+  if (el.closest('[contenteditable=""], [contenteditable="true"], [role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"], [role="menu"]')) return true
+  return handlesTouch(el)
+}
+
 /**
  * Calls `onSwipe('left' | 'right')` for a quick, clearly horizontal one-finger swipe anywhere on the page,
  * except on elements that pan themselves (mark more with `data-no-swipe`), while a fullscreen chart
  * locks the body, or while text is selected. 'left' = finger moved left = "next".
+ * On desktop the arrow keys do the same: → = "next" (like swiping left), ← = "previous".
  */
 export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void) {
   if (!import.meta.client) return
@@ -40,4 +48,10 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void) {
     if (window.getSelection()?.toString()) return
     onSwipe(dx < 0 ? 'left' : 'right')
   }, { passive: true })
+  useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+    if (document.body.style.overflow === 'hidden' || handlesArrows(document.activeElement)) return
+    onSwipe(e.key === 'ArrowRight' ? 'left' : 'right')
+  })
 }

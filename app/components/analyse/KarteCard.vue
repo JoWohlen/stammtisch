@@ -483,10 +483,10 @@ watch(baseH, resetZoom)
         </CardTitle>
         <CardDescription class="max-sm:col-start-1">
           <template v-if="mode === 'anzahl'">
-            Wo waren wir schon? Je dunkler, desto mehr Brauhäuser.
+            Wo waren wir schon? Je röter, desto mehr Brauhäuser.
           </template>
           <template v-else>
-            Wo schmeckt's am besten? Je dunkler, desto besser die Ø Bewertung.
+            Wo schmeckt's am besten? Je grüner, desto besser die Ø Bewertung.
           </template>
         </CardDescription>
         <div class="col-start-2 row-start-1 justify-self-end sm:hidden">

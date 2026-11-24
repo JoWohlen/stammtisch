@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Award, Beer, ChartLine, ChevronDown, House, Menu, Moon, QrCode, ScrollText, Search, Settings, X } from '@lucide/vue'
+import { Award, Beer, ChartLine, ChevronDown, History, House, Menu, Moon, QrCode, ScrollText, Search, Settings, X } from '@lucide/vue'
 import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
 
 const pages = [
   { to: '/', label: 'Übersicht', icon: House },
   { to: '/suche', label: 'Suche', icon: Search },
+  { to: '/timeline', label: 'Timeline', icon: History },
   { to: '/satzung', label: 'Satzung', icon: ScrollText },
   { to: '/analyse', label: 'Analyse', icon: ChartLine },
   { to: '/awards', label: 'Awards', icon: Award },

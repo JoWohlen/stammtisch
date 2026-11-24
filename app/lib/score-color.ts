@@ -9,7 +9,8 @@ const AMBER = 'oklch(87.9% 0.169 91.605)' // amber-300
 const GREEN = 'oklch(79.2% 0.209 151.711)' // green-400
 
 /** the ramp's three stops, for things rated good / so-so / bad without a number (e.g. awards) */
-export const TONE_COLOR = { bad: RED, neutral: AMBER, good: GREEN } as const
+// bad: a bit lighter than the ramp's red (between red-400 and red-300), so black text on a badge reads better
+export const TONE_COLOR = { bad: 'oklch(75.5% 0.155 21)', neutral: AMBER, good: GREEN } as const
 
 const clamp = (t: number) => Math.max(0, Math.min(1, t))
 const pct = (t: number) => `${Math.round(t * 100)}%`

@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { Anvil, BadgePercent, Banknote, Beer, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
+import { Anvil, BadgePercent, Banknote, Beer, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TreePine, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
 import { KoelnerDom, KoelschStange, KurzFrei, Kurze, StangeEuro, StangeLeer, Zapfhahn } from '@/lib/award-icons'
 import type { Category, Coords, Participant, Visit } from '#shared/types'
 import { byDate as sortByDate, CATEGORIES, heads, mean, raterNames } from '@/lib/stats'
@@ -94,6 +94,7 @@ export const AWARD_DEFS: AwardDef[] = [
   def({ type: 'durstig', scope: 'brauhaus', label: 'Durstigster Abend', icon: KoelschStange, tone: 'neutral', hint: 'Meiste Liter Bier pro Kopf', explain: 'Der Abend mit den meisten Litern Bier pro Kopf.' }),
   def({ type: 'trocken', scope: 'brauhaus', label: 'Trockenster Abend', icon: StangeLeer, tone: 'neutral', hint: 'Wenigste Liter Bier pro Kopf', explain: 'Der Abend mit den wenigsten Litern Bier pro Kopf.' }),
   def({ type: 'kurzfrei', scope: 'brauhaus', label: 'Kurzfrei', icon: KurzFrei, tone: 'neutral', hint: 'Kein einziger Kurzer', explain: 'Ein Abend ganz ohne Kurze.' }),
+  def({ type: 'weihnachten', scope: 'brauhaus', label: 'Weihnachtsessen', icon: TreePine, tone: 'good', hint: 'Der letzte Stammtisch im Dezember', explain: 'Der letzte Stammtisch im Dezember eines Jahres ist unser Weihnachtsessen.' }),
   def({ type: 'jubilaeum', scope: 'brauhaus', label: 'Jubiläum', icon: CakeSlice, tone: 'good', hint: 'Ein runder Stammtisch', explain: 'Der 10., 25., 50., 75., 100. … Stammtisch.' }),
   def({ type: 'pause', scope: 'brauhaus', label: 'Längste Durststrecke', icon: Hourglass, tone: 'bad', hint: 'Längste Pause seit dem vorherigen Stammtisch', explain: 'Der Stammtisch, vor dem wir am längsten auf den nächsten Abend warten mussten.' }),
   def({ type: 'veedel', scope: 'brauhaus', label: 'Neues Veedel', icon: MapIcon, tone: 'neutral', hint: 'Zum ersten Mal in diesem Stadtteil', explain: 'Der erste Besuch in einem Kölner Stadtteil, in dem wir vorher noch nie waren.' }),
@@ -180,6 +181,8 @@ const pricePerHead = (v: Visit) => (v.rechnung != null && heads(v) ? v.rechnung 
 export function computeAwards(visits: Visit[], participants: Participant[]): Map<number, Award[]> {
   const byDate = sortByDate(visits)
   const first = byDate[0]
+  // Weihnachtsessen: the last Stammtisch of every December (later ones overwrite earlier ones per year)
+  const weihnachten = new Set(new Map(byDate.filter(v => v.date.slice(5, 7) === '12').map(v => [v.date.slice(0, 4), v])).values())
 
   // a member joins with their first rating; the founders of the first Stammtisch don't "join"
   const joined = new Map<string, Visit>()
@@ -242,6 +245,7 @@ export function computeAwards(visits: Visit[], participants: Participant[]): Map
     const nth = byDate.indexOf(v) + 1
     if (v === first) list.push(make('first'))
     if (nth === 10 || nth % 25 === 0) list.push(make('jubilaeum', { detail: `${nth}. Stammtisch` }))
+    if (weihnachten.has(v)) list.push(make('weihnachten', { detail: `Weihnachten ${v.date.slice(0, 4)}` }))
 
     const stadtteil = v.lage?.stadtteil
     if (stadtteil && !seenStadtteile.has(stadtteil)) {
