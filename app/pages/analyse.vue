@@ -68,15 +68,17 @@ useHorizontalSwipe((d) => {
         class="mt-3"
         @update:model-value="select($event as Kategorie)"
       >
+        <!-- page sections: folder tabs on a line, unlike the filled switches inside the cards;
+             the active tab is open towards the content below -->
         <TabsList
-          class="grid w-full grid-cols-4 sm:inline-grid sm:w-auto"
+          class="grid h-auto w-full grid-cols-4 items-end gap-1 rounded-none border-b bg-transparent p-0 sm:flex sm:justify-start"
           aria-label="Kategorie"
         >
           <TabsTrigger
             v-for="k in KATEGORIEN"
             :key="k.key"
             :value="k.key"
-            class="gap-1.5 px-2 sm:px-4"
+            class="-mb-px h-11 cursor-pointer gap-1.5 rounded-t-lg rounded-b-none border border-b-0 border-border bg-muted/60 px-2 text-base text-muted-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground data-[state=active]:h-12 data-[state=active]:border-b data-[state=active]:border-b-background data-[state=active]:bg-background data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-background data-[state=active]:hover:text-foreground sm:flex-none sm:px-5"
           >
             <component
               :is="k.icon"
