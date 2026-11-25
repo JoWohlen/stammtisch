@@ -14,8 +14,6 @@ import { CHART_FULLSCREEN } from '@/composables/useChartFullscreen'
  * turned by 90°. `v-model:rotated` tells the chart, for pointer maths.
  * Inside, `var(--fs-height)` is the usable screen height in both cases.
  */
-defineOptions({ inheritAttrs: false })
-
 const isFull = defineModel<boolean>('full', { default: false })
 const rotatedModel = defineModel<boolean>('rotated', { default: false })
 
@@ -29,16 +27,7 @@ const turned = computed(() => isFull.value && !locked.value && portrait.value)
 watch(turned, r => (rotatedModel.value = r), { immediate: true })
 const bodyLocked = useScrollLock(import.meta.client ? document.body : null)
 
-/**
- * While full, the card is moved to <body>: inside a transformed parent (the Analyse carousel)
- * `position: fixed` would be relative to that parent and clipped by it. A placeholder of the
- * card's height keeps the page from jumping meanwhile.
- */
-const card = useTemplateRef<HTMLElement>('card')
-const placeholderHeight = ref(0)
-
 async function enter() {
-  placeholderHeight.value = card.value?.offsetHeight ?? 0
   isFull.value = true
   bodyLocked.value = true
   try {
@@ -89,25 +78,12 @@ provide(CHART_FULLSCREEN, { isFull: readonly(isFull), toggle })
 
 <template>
   <div
-    v-if="isFull"
-    v-bind="$attrs"
-    :style="{ height: `${placeholderHeight}px` }"
-    aria-hidden="true"
-  />
-  <Teleport
-    to="body"
-    :disabled="!isFull"
+    :class="!isFull ? 'min-w-0' : turned ? 'fixed top-0 left-full z-50 h-[100dvw] w-[100dvh] origin-top-left rotate-90 overflow-auto bg-background p-2' : 'fixed inset-0 z-50 overflow-auto bg-background p-2'"
+    :style="isFull ? { '--fs-height': turned ? '100dvw' : '100dvh' } : undefined"
+    :role="isFull ? 'dialog' : undefined"
+    :aria-modal="isFull ? 'true' : undefined"
+    class="flex flex-col *:flex-1"
   >
-    <div
-      ref="card"
-      v-bind="isFull ? {} : $attrs"
-      :class="!isFull ? 'min-w-0' : turned ? 'fixed top-0 left-full z-50 h-[100dvw] w-[100dvh] origin-top-left rotate-90 overflow-auto bg-background p-2' : 'fixed inset-0 z-50 overflow-auto bg-background p-2'"
-      :style="isFull ? { '--fs-height': turned ? '100dvw' : '100dvh' } : undefined"
-      :role="isFull ? 'dialog' : undefined"
-      :aria-modal="isFull ? 'true' : undefined"
-      class="flex flex-col *:flex-1"
-    >
-      <slot />
-    </div>
-  </Teleport>
+    <slot />
+  </div>
 </template>

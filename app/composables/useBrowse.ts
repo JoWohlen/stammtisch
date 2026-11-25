@@ -2,7 +2,7 @@ import type { ComputedRef } from 'vue'
 import { formatDate } from '@/lib/format'
 
 /**
- * Swipe (and ‹ › buttons) through Brauhäuser or members on their detail pages (see <BrowseCarousel>).
+ * Swipe (and ‹ › buttons) through Brauhäuser or members on their detail pages.
  *
  * Clicking an entry in a list (tile grid, member list) remembers that list's current order,
  * e.g. "Alle Besuche" sorted by date, so swiping follows exactly what the user just saw.
@@ -28,6 +28,15 @@ const parse = (path: string) => {
 let fromList = false
 /** set when the detail page itself navigates to a neighbour, so the order is kept */
 let fromBrowse = false
+/** slide direction of the pending browse navigation, picked up once by the swipe middleware */
+let pendingSlide: 'left' | 'right' | null = null
+
+/** 'left' = content slides out to the left (going to "next"), consumed on read */
+export function takeBrowseSlide() {
+  const dir = pendingSlide
+  pendingSlide = null
+  return dir
+}
 
 const useOrder = () => useState<Record<BrowseKind, string[]>>('browse-order', () => ({ brauhaus: [], teilnehmer: [] }))
 
@@ -43,7 +52,7 @@ export function useBrowseList() {
 }
 
 /**
- * Neighbours of the current page in the remembered (or default) order.
+ * Neighbours of the current page in the remembered (or default) order, plus swipe handling.
  * `current.nr` is the selected visit on a Brauhaus page (repeat visits are separate entries).
  */
 export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string, nr?: number }>) {
@@ -91,20 +100,19 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
     const p = position.value.list[i]
     return position.value.i !== -1 && p ? { to: p, label: label(p) } : null
   }
-  /** ‹ n / total › of the entry `offset` steps away from the current one */
-  const navAt = (offset: number) => {
-    const i = position.value.i
-    if (i === -1) return { prev: null, next: null, counter: null }
-    return { prev: at(i + offset - 1), next: at(i + offset + 1), counter: { n: i + offset + 1, total: position.value.list.length } }
-  }
   const prev = computed(() => at(position.value.i - 1))
   const next = computed(() => at(position.value.i + 1))
+  const counter = computed(() => (position.value.i === -1 ? null : { n: position.value.i + 1, total: position.value.list.length }))
 
   /** replace, so "back" returns to the list instead of stepping through every swipe */
-  const go = (to: string) => {
+  const go = (t: BrowseTarget | null) => {
+    if (!t) return
     fromBrowse = true
-    navigateTo(to, { replace: true })
+    pendingSlide = t.to === next.value?.to ? 'left' : 'right'
+    navigateTo(t.to, { replace: true })
   }
 
-  return { prev, next, navAt, go }
+  useHorizontalSwipe(dir => go(dir === 'left' ? next.value : prev.value))
+
+  return { prev, next, counter, go }
 }
