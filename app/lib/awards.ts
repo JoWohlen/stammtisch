@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { Anvil, BadgePercent, Banknote, Beer, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TreePine, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
+import { Anvil, BadgePercent, Banknote, Beer, Bird, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Flame, Footprints, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Map as MapIcon, MapPinCheck, MapPinX, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, RotateCcw, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, ThumbsDown, TreePine, TrendingDown, Trophy, User, UserPlus, Users, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
 import { KoelnerDom, KoelschStange, KurzFrei, Kurze, StangeEuro, StangeLeer, Zapfhahn } from '@/lib/award-icons'
 import type { Category, Coords, Participant, Visit } from '#shared/types'
 import { byDate as sortByDate, CATEGORIES, heads, mean, raterNames } from '@/lib/stats'
@@ -107,6 +107,7 @@ export const AWARD_DEFS: AwardDef[] = [
   def({ type: 'm-dauergast', scope: 'mitglied', label: 'Dauergast', icon: CalendarCheck, tone: 'good', hint: 'Die meisten Besuche', explain: 'Das Mitglied, das bei den meisten Stammtischen dabei war.' }),
   def({ type: 'm-treu', scope: 'mitglied', label: 'Treue Seele', icon: Heart, tone: 'good', hint: 'Höchste Anwesenheit seit Beitritt', explain: `Das Mitglied mit der höchsten Anwesenheitsquote seit dem eigenen ersten Besuch.` }),
   def({ type: 'm-bier', scope: 'mitglied', label: 'Bierkönig', icon: Beer, tone: 'neutral', hint: 'Meiste Liter Bier pro Abend', explain: `Das Mitglied mit dem höchsten Ø Bieranteil pro Abend. Pro Abend wird die getrunkene Menge gleichmäßig auf alle Anwesenden (Mitglieder und Gäste) verteilt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
+  def({ type: 'm-kurze', scope: 'mitglied', label: 'Schnapsdrossel', icon: Bird, tone: 'neutral', hint: 'Meiste Kurze pro Abend', explain: `Das Mitglied mit dem höchsten Ø Anteil an Kurzen pro Abend. Pro Abend werden die Kurzen gleichmäßig auf alle Anwesenden (Mitglieder und Gäste) verteilt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-streng', scope: 'mitglied', label: 'Strengster Kritiker', icon: Gavel, tone: 'neutral', hint: 'Niedrigste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die niedrigsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-mild', scope: 'mitglied', label: 'Gute Seele', icon: Sparkles, tone: 'neutral', hint: 'Höchste Ø eigene Bewertung', explain: `Das Mitglied, das im Schnitt die höchsten Bewertungen vergibt. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-eigenlob', scope: 'mitglied', label: 'Selbstverliebt', icon: MirrorRound, tone: 'bad', hint: 'Ist am stolzesten auf die eigenen Abende', explain: `Das Mitglied, das selbst geplante Abende im Vergleich zum Rest der Runde am besten bewertet. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
@@ -122,7 +123,8 @@ export const AWARD_DEFS: AwardDef[] = [
   def({ type: 'm-autist', scope: 'mitglied', label: 'Autist', icon: Ruler, tone: 'neutral', hint: 'Vergibt fast nur glatte oder halbe Noten', explain: `Alle Mitglieder, bei denen mindestens ${formatNumber(MIN_GLATT * 100)} % der eigenen Bewertungen glatte oder halbe Noten sind (z. B. 4 oder 3,5), über alle Kategorien. Zählt erst ab ${MIN_MEMBER_VISITS} Besuchen.` }),
   def({ type: 'm-serie', scope: 'mitglied', label: 'Marathonläufer', icon: Flame, tone: 'good', hint: 'Längste Serie ohne Fehlen', explain: 'Das Mitglied mit den meisten Stammtischen in Folge, ohne einen einzigen zu verpassen. Die Serie muss nicht mehr laufen.' }),
   def({ type: 'm-comeback', scope: 'mitglied', label: 'Auferstanden', icon: RotateCcw, tone: 'neutral', hint: 'Längste Abwesenheit vor der Rückkehr', explain: 'Das Mitglied, das die meisten Stammtische am Stück verpasst hat und dann doch wiederkam.' }),
-  def({ type: 'm-entdecker', scope: 'mitglied', label: 'Entdecker', icon: Compass, tone: 'good', hint: 'Hat die meisten neuen Brauhäuser geplant', explain: 'Das Mitglied, das die meisten Abende in Brauhäusern geplant hat, in denen wir vorher noch nie waren. Teilt sich mehr als die Hälfte der Planer den ersten Platz, wird der Award nicht vergeben.' }),
+  def({ type: 'm-entdecker', scope: 'mitglied', label: 'Entdecker', icon: Compass, tone: 'good', hint: 'Geplante Abende am weitesten vom Dom', explain: 'Das Mitglied, dessen geplante Abende im Schnitt am weitesten vom Kölner Dom entfernt waren (Luftlinie).' }),
+  def({ type: 'm-lokalpatriot', scope: 'mitglied', label: 'Lokalpatriot', icon: KoelnerDom, tone: 'good', hint: 'Geplante Abende am nächsten am Dom', explain: 'Das Gegenteil von Entdecker: das Mitglied, dessen geplante Abende im Schnitt am nächsten am Kölner Dom lagen (Luftlinie).' }),
   def({ type: 'm-sparfuchs', scope: 'mitglied', label: 'Schnäppchenjäger', icon: Coins, tone: 'good', hint: 'Günstigste geplante Abende', explain: `Das Mitglied, dessen geplante Abende im Schnitt die niedrigste Rechnung pro Kopf hatten. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
   def({ type: 'm-luxus', scope: 'mitglied', label: 'Millionär', icon: Gem, tone: 'bad', hint: 'Teuerste geplante Abende', explain: `Das Mitglied, dessen geplante Abende im Schnitt die höchste Rechnung pro Kopf hatten. Zählt erst ab ${MIN_PLANNED} geplanten Abenden.` }),
   def({ type: 'm-glueck', scope: 'mitglied', label: 'Glücksbringer', icon: Clover, tone: 'good', hint: 'Mit ihm werden die Abende besser bewertet', explain: `Das Mitglied, bei dessen Anwesenheit die Abende im Schnitt am deutlichsten besser bewertet werden als ohne. Zählt erst, wenn es mindestens ${MIN_GLUECK} Abende mit und ohne das Mitglied gibt.` }),
@@ -299,14 +301,6 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
   const byDate = sortByDate(visits)
   const first = byDate[0]
 
-  // visits to a Brauhaus we had never been to before
-  const seen = new Set<string>()
-  const newBrauhaus = new Set<number>()
-  for (const v of byDate) {
-    if (!seen.has(v.slug)) newBrauhaus.add(v.nr)
-    seen.add(v.slug)
-  }
-
   const stats = participants.flatMap(({ name }) => {
     const attended = byDate.filter(v => raterNames(v).has(name))
     const joined = attended[0]
@@ -316,6 +310,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       return mean(xs)
     })
     const literShares = attended.flatMap(v => (v.liter != null && heads(v) ? [v.liter / heads(v)] : []))
+    const kurzeShares = attended.flatMap(v => (v.kurze != null && heads(v) ? [v.kurze / heads(v)] : []))
     const planned = byDate.filter(v => v.planer === name)
     const plannedScored = planned.filter(v => v.averages.gesamt != null)
     const possible = byDate.filter(v => v.date >= joined.date).length
@@ -360,6 +355,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
     const glatt = enough && votes.length ? votes.filter(x => Math.abs(x * 2 - Math.round(x * 2)) < EPS).length / votes.length : null
 
     const priced = planned.map(pricePerHead).filter((x): x is number => x != null)
+    const domDistances = planned.flatMap(v => (v.coords ? [distance(v.coords, DOM)] : []))
     const without = byDate.filter(v => v.averages.gesamt != null && !raterNames(v).has(name))
     const withMe = attended.filter(v => v.averages.gesamt != null)
     const glueck = withMe.length >= MIN_GLUECK && without.length >= MIN_GLUECK
@@ -370,8 +366,9 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       joined,
       besuche: attended.length,
       possible,
-      quote: possible >= MIN_MEMBER_VISITS ? attended.length / possible : null,
+      quote: attended.length / possible,
       bier: enough && literShares.length ? mean(literShares) : null,
+      kurze: enough && kurzeShares.length ? mean(kurzeShares) : null,
       vote: enough ? mean(own) : null,
       schwankung: enough ? Math.sqrt(mean(own.map(x => (x - mean(own)) ** 2))) : null,
       geplant: planned.length,
@@ -385,7 +382,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
       einser: attended.reduce((n, v) => n + CATEGORIES.filter(c => v.ratings[c][name] === 1).length, 0),
       serie,
       comeback,
-      neu: planned.filter(v => newBrauhaus.has(v.nr)).length,
+      domDistanz: domDistances.length ? mean(domDistances) : null,
       planerPreis: priced.length >= MIN_PLANNED ? mean(priced) : null,
       glueck,
       glatt,
@@ -405,6 +402,7 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
   give('m-dauergast', extreme(stats, s => s.besuche, 'max'), x => `${formatNumber(x)} Besuche`)
   give('m-treu', extreme(stats, s => s.quote, 'max'), (x, s) => `${formatNumber(x * 100)} % (${s.besuche} von ${s.possible})`)
   give('m-bier', extreme(stats, s => s.bier, 'max'), x => `${liter(x)} pro Abend`)
+  give('m-kurze', extreme(stats, s => s.kurze, 'max'), x => `${formatNumber(x, 1)} Kurze pro Abend`)
   give('m-streng', extreme(stats, s => s.vote, 'min'), score)
   give('m-mild', extreme(stats, s => s.vote, 'max'), score)
 
@@ -432,10 +430,8 @@ export function computeMemberAwards(visits: Visit[], participants: Participant[]
   give('m-autist', stats.flatMap(s => (s.glatt != null && s.glatt >= MIN_GLATT - EPS ? [{ item: s, x: s.glatt }] : [])), x => `${formatNumber(x * 100)} % glatt oder halb`)
   give('m-serie', positive('max', s => s.serie), x => `${formatNumber(x)} in Folge`)
   give('m-comeback', positive('max', s => s.comeback), x => `nach ${formatNumber(x)} verpassten Abenden`)
-  // planning rotates and nearly every evening is somewhere new: a tie among most planners says nothing
-  const entdecker = positive('max', s => s.neu)
-  const planners = stats.filter(s => s.neu > 0).length
-  give('m-entdecker', entdecker.length * 2 <= planners ? entdecker : [], x => `${formatNumber(x)} neue Brauhäuser`)
+  give('m-entdecker', extreme(stats, s => s.domDistanz, 'max'), x => `Ø ${km(x)} vom Dom`)
+  give('m-lokalpatriot', extreme(stats, s => s.domDistanz, 'min'), x => `Ø ${km(x)} vom Dom`)
   give('m-sparfuchs', extreme(stats, s => s.planerPreis, 'min'), x => `Ø ${euro(x)} pro Kopf`)
   give('m-luxus', extreme(stats, s => s.planerPreis, 'max'), x => `Ø ${euro(x)} pro Kopf`)
   give('m-glueck', positive('max', s => s.glueck), x => `${signed(x)} Punkte`)

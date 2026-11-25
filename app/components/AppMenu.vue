@@ -4,11 +4,14 @@ import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
 
 const pages = [
   { to: '/', label: 'Übersicht', icon: House },
-  { to: '/suche', label: 'Suche', icon: Search },
-  { to: '/timeline', label: 'Timeline', icon: History },
-  { to: '/satzung', label: 'Satzung', icon: ScrollText },
   { to: '/analyse', label: 'Analyse', icon: ChartLine },
+  { to: '/satzung', label: 'Satzung', icon: ScrollText },
   { to: '/awards', label: 'Awards', icon: Award },
+  { to: '/timeline', label: 'Timeline', icon: History },
+  { to: '/suche', label: 'Suche', icon: Search },
+]
+/** below the divider, above the settings */
+const extras = [
   { to: '/teilen', label: 'Teilen', icon: QrCode },
 ]
 
@@ -104,23 +107,30 @@ const toggleNightMode = () => {
             class="flex flex-col gap-0.5 rounded-xl border bg-popover p-1.5 text-popover-foreground"
             aria-label="Hauptmenü"
           >
-            <NuxtLink
-              v-for="p in pages"
-              :key="p.to"
-              :to="p.to"
-              class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-              :class="isActive(p.to) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
-              :aria-current="isActive(p.to) ? 'page' : undefined"
+            <template
+              v-for="(group, gi) in [pages, extras]"
+              :key="gi"
             >
-              <component
-                :is="p.icon"
-                class="size-4"
-                aria-hidden="true"
+              <div
+                v-if="gi > 0"
+                class="mx-2 my-1 h-px bg-border"
               />
-              {{ p.label }}
-            </NuxtLink>
-
-            <div class="mx-2 my-1 h-px bg-border" />
+              <NuxtLink
+                v-for="p in group"
+                :key="p.to"
+                :to="p.to"
+                class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+                :class="isActive(p.to) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
+                :aria-current="isActive(p.to) ? 'page' : undefined"
+              >
+                <component
+                  :is="p.icon"
+                  class="size-4"
+                  aria-hidden="true"
+                />
+                {{ p.label }}
+              </NuxtLink>
+            </template>
 
             <button
               type="button"

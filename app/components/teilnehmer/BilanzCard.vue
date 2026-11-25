@@ -16,9 +16,10 @@ const EURO = '\u00A0€'
 const perVisit = (n: number) => n / Math.max(s.besuche, 1)
 const pct = (a: number, b: number) => `${Math.round((100 * a) / Math.max(b, 1))} %`
 
-/** joined later than the very first Stammtisch → show both attendance rates */
-const spaeterDabei = s.ersterBesuch !== s.start
-
+/** attendance rate: since the first Stammtisch, or since joining for anyone who came later */
+const besucheSub = s.ersterBesuch === s.start
+  ? `${pct(s.besuche, s.besucheSeitStart)} seit Start`
+  : `${pct(s.besuche, s.besucheSeitBeitritt)} seit Beitritt`
 const tiles = [
   { label: 'Biere', icon: Beer, value: fitForms(s.biere, { prefix: '≈ ' }), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
   { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, prefix: '≈ ', suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
@@ -35,7 +36,7 @@ const tiles = [
     : []),
 ]
 /** two columns on phones: an odd number of slots lets the last tile fill the row */
-const fillLast = ((spaeterDabei ? 2 : 1) + tiles.length) % 2 === 1
+const fillLast = (1 + tiles.length) % 2 === 1
 
 const categories = p
   ? [
@@ -64,18 +65,12 @@ const planned = computed(() => {
 
     <CardContent class="flex flex-col gap-6">
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <!-- with the two rate lines the tile spans 2 columns below lg, so the lines never wrap -->
         <StatTile
           label="Besuche"
           :icon="CalendarDays"
           :value="formatNumber(s.besuche)"
-          :class="spaeterDabei ? 'col-span-2 lg:col-span-1' : ''"
-        >
-          <div class="flex flex-col text-xs whitespace-nowrap text-zinc-400 tabular-nums dark:text-zinc-500">
-            <span>{{ pct(s.besuche, s.besucheSeitStart) }} seit Start</span>
-            <span v-if="spaeterDabei">{{ pct(s.besuche, s.besucheSeitBeitritt) }} ab {{ formatDate(s.ersterBesuch) }}</span>
-          </div>
-        </StatTile>
+          :sub="besucheSub"
+        />
         <!-- otherwise the last tile fills the odd slot on mobile -->
         <StatTile
           v-for="(t, i) in tiles"

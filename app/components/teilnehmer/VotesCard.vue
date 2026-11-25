@@ -49,6 +49,7 @@ function count(m: Metric): string {
     :collapsible="false"
     :tiles="tiles"
     score-line
+    :podium="false"
     :count="count"
   />
 </template>

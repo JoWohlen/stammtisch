@@ -18,7 +18,11 @@ const props = withDefaults(defineProps<{
   collapsible?: boolean
   /** details line shows all four scores with icons: date · Gesamt · Location · Service · Essen, the sorted metric bold */
   scoreLine?: boolean
-}>(), { collapsible: true })
+  /** gold/silver/bronze badge on places 1–3 while sorted by date (default true) */
+  podium?: boolean
+  /** also show the badge while sorted by Ø Gesamt */
+  podiumOnGesamt?: boolean
+}>(), { collapsible: true, podium: true })
 
 const SORTS: { key: Sort, label: string }[] = [
   { key: 'datum', label: 'Datum' },
@@ -75,8 +79,10 @@ const items = computed(() => {
       ...t,
       rank: i + 1,
       value,
-      /** trophy badge while sorted by date, where the rank number is not shown */
-      place: sort.value === 'datum' ? podium.value.get(t.key) : undefined,
+      /** trophy badge while sorted by date, where the rank number is not shown (optionally also by Ø Gesamt) */
+      place: props.podium && (sort.value === 'datum' || (props.podiumOnGesamt && sort.value === 'gesamt'))
+        ? podium.value.get(t.key)
+        : undefined,
       /** scored tiles always get black text */
       scored: value != null,
       bg: value == null || !scale.value ? 'var(--muted)' : scale.value.color(value),

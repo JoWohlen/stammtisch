@@ -35,5 +35,6 @@ const tiles: ScoreTile[] = byDate.map((v) => {
     :tiles="tiles"
     :count="`${tiles.length} Besuche`"
     :collapsible="false"
+    podium-on-gesamt
   />
 </template>

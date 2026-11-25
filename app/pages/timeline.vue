@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDate, formatScore } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { scoreScale } from '@/lib/score-color'
 import { buildTimeline, type TimelineEvent } from '@/lib/timeline'
 
@@ -72,10 +72,6 @@ const TONE: Record<TimelineEvent['tone'], string> = {
                 class="min-w-0 flex-1 truncate group-hover:underline group-hover:underline-offset-2"
                 :class="e.events.length ? 'font-semibold' : 'text-sm'"
               >{{ e.visit.brauhaus }}</span>
-              <span
-                v-if="e.visit.averages.gesamt != null"
-                class="shrink-0 text-xs text-muted-foreground tabular-nums"
-              >Ø {{ formatScore(e.visit.averages.gesamt) }}</span>
             </NuxtLink>
 
             <ul
