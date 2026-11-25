@@ -8,6 +8,8 @@ const props = defineProps<{
   /** one text, or several from longest to shortest: the first that fits the tile is shown */
   value: string | string[]
   icon?: Component
+  /** colour class for the icon, see ICON_COLOR */
+  iconClass?: string
   sub?: string
   /** arrow next to the value: green up, red down, grey sideways */
   trend?: 'up' | 'down' | 'flat'
@@ -52,6 +54,7 @@ const fit = computed(() => {
         :is="icon"
         v-if="icon"
         class="size-4"
+        :class="iconClass"
         aria-hidden="true"
       />
       {{ label }}

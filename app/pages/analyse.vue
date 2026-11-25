@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import { Beer, CalendarDays, Map as MapIcon, Star } from '@lucide/vue'
 import { formatDate } from '@/lib/format'
 
 useHead({ title: 'Analyse · Stammtisch-Tracker' })
@@ -11,11 +9,11 @@ const zeitraum = s.ersterBesuch && s.letzterBesuch
   : undefined
 
 type Kategorie = 'bewertungen' | 'termine' | 'bier' | 'orte'
-const KATEGORIEN: { key: Kategorie, label: string, short: string, icon: Component, hint: string }[] = [
-  { key: 'bewertungen', label: 'Bewertungen', short: 'Noten', icon: Star, hint: 'Wie wir bewerten, wer ähnlich tickt und wie sich das verändert' },
-  { key: 'termine', label: 'Termine', short: 'Termine', icon: CalendarDays, hint: 'Wer wann da war, Jahreszeiten und wie regelmäßig wir uns treffen' },
-  { key: 'bier', label: 'Bier', short: 'Bier', icon: Beer, hint: 'Was wir trinken und was es kostet' },
-  { key: 'orte', label: 'Orte', short: 'Orte', icon: MapIcon, hint: 'Wo in Köln wir schon waren' },
+const KATEGORIEN: { key: Kategorie, label: string, short: string, hint: string }[] = [
+  { key: 'bewertungen', label: 'Bewertungen', short: 'Noten', hint: 'Wie wir bewerten, wer ähnlich tickt und wie sich das verändert' },
+  { key: 'termine', label: 'Termine', short: 'Termine', hint: 'Wer wann da war, Jahreszeiten und wie regelmäßig wir uns treffen' },
+  { key: 'bier', label: 'Bier', short: 'Bier', hint: 'Was wir trinken und was es kostet' },
+  { key: 'orte', label: 'Orte', short: 'Orte', hint: 'Wo in Köln wir schon waren' },
 ]
 const keys = KATEGORIEN.map(k => k.key)
 
@@ -80,11 +78,6 @@ useHorizontalSwipe((d) => {
             :value="k.key"
             class="-mb-px h-11 cursor-pointer gap-1.5 rounded-t-lg rounded-b-none border border-b-0 border-border bg-muted/60 px-2 text-base text-muted-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground data-[state=active]:h-12 data-[state=active]:border-b data-[state=active]:border-b-background data-[state=active]:bg-background data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-background data-[state=active]:hover:text-foreground sm:flex-none sm:px-5"
           >
-            <component
-              :is="k.icon"
-              class="size-4"
-              aria-hidden="true"
-            />
             <span class="sm:hidden">{{ k.short }}</span>
             <span class="hidden sm:inline">{{ k.label }}</span>
           </TabsTrigger>

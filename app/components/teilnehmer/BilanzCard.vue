@@ -2,6 +2,7 @@
 import { Beer, CalendarDays, ChevronRight, Crown, GlassWater, Handshake, MapPin, Utensils, Wallet } from '@lucide/vue'
 import type { Teilnehmer } from '@/composables/useStammtisch'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
+import { categoryColor, ICON_COLOR } from '@/lib/icon-colors'
 import { scoreScale } from '@/lib/score-color'
 
 const props = defineProps<{ teilnehmer: Teilnehmer }>()
@@ -21,10 +22,10 @@ const besucheSub = s.ersterBesuch === s.start
   ? `${pct(s.besuche, s.besucheSeitStart)} seit Start`
   : `${pct(s.besuche, s.besucheSeitBeitritt)} seit Beitritt`
 const tiles = [
-  { label: 'Biere', icon: Beer, value: fitForms(s.biere, { prefix: '≈ ' }), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
-  { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, prefix: '≈ ', suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
-  { label: 'Ausgaben', icon: Wallet, value: fitForms(s.kosten, { prefix: '≈ ', suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
-  { label: 'Geplant', icon: Crown, value: formatNumber(p?.besuche ?? 0), sub: `von ${s.besucheSeitStart} Abenden` },
+  { label: 'Biere', icon: Beer, iconClass: ICON_COLOR.bier, value: fitForms(s.biere, { prefix: '≈ ' }), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
+  { label: 'Liter Bier', icon: GlassWater, iconClass: ICON_COLOR.bier, value: fitForms(s.liter, { digits: 1, prefix: '≈ ', suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
+  { label: 'Ausgaben', icon: Wallet, iconClass: ICON_COLOR.geld, value: fitForms(s.kosten, { prefix: '≈ ', suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
+  { label: 'Geplant', icon: Crown, iconClass: ICON_COLOR.planer, value: formatNumber(p?.besuche ?? 0), sub: `von ${s.besucheSeitStart} Abenden` },
   // like "Ø Bewertung" on the overview, but the member's own votes
   ...(s.trend
     ? [{
@@ -40,9 +41,9 @@ const fillLast = (1 + tiles.length) % 2 === 1
 
 const categories = p
   ? [
-      { label: 'Location', icon: MapPin, value: p.location },
-      { label: 'Service', icon: Handshake, value: p.service },
-      { label: 'Essen/Trinken', icon: Utensils, value: p.essen },
+      { label: 'Location', icon: MapPin, color: categoryColor('location'), value: p.location },
+      { label: 'Service', icon: Handshake, color: categoryColor('service'), value: p.service },
+      { label: 'Essen/Trinken', icon: Utensils, color: categoryColor('essen'), value: p.essen },
     ]
   : []
 
@@ -68,6 +69,7 @@ const planned = computed(() => {
         <StatTile
           label="Besuche"
           :icon="CalendarDays"
+          :icon-class="ICON_COLOR.termine"
           :value="formatNumber(s.besuche)"
           :sub="besucheSub"
         />
@@ -115,6 +117,7 @@ const planned = computed(() => {
                 <component
                   :is="c.icon"
                   class="size-3 shrink-0"
+                  :style="{ color: c.color }"
                   aria-hidden="true"
                 />
                 {{ c.label }}

@@ -3,16 +3,16 @@ import { Award, Beer, ChartLine, ChevronDown, History, House, Menu, Moon, QrCode
 import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
 
 const pages = [
-  { to: '/', label: 'Übersicht', icon: House },
-  { to: '/analyse', label: 'Analyse', icon: ChartLine },
-  { to: '/satzung', label: 'Satzung', icon: ScrollText },
-  { to: '/awards', label: 'Awards', icon: Award },
-  { to: '/timeline', label: 'Timeline', icon: History },
-  { to: '/suche', label: 'Suche', icon: Search },
+  { to: '/', label: 'Übersicht', icon: House, color: 'text-sky-500' },
+  { to: '/analyse', label: 'Analyse', icon: ChartLine, color: 'text-indigo-500 dark:text-indigo-400' },
+  { to: '/satzung', label: 'Satzung', icon: ScrollText, color: 'text-orange-500' },
+  { to: '/awards', label: 'Awards', icon: Award, color: 'text-yellow-500' },
+  { to: '/timeline', label: 'Timeline', icon: History, color: 'text-teal-500' },
+  { to: '/suche', label: 'Suche', icon: Search, color: 'text-blue-500' },
 ]
 /** below the divider, above the settings */
 const extras = [
-  { to: '/teilen', label: 'Teilen', icon: QrCode },
+  { to: '/teilen', label: 'Teilen', icon: QrCode, color: 'text-pink-500' },
 ]
 
 const open = ref(false)
@@ -126,6 +126,7 @@ const toggleNightMode = () => {
                 <component
                   :is="p.icon"
                   class="size-4"
+                  :class="p.color"
                   aria-hidden="true"
                 />
                 {{ p.label }}
@@ -140,7 +141,7 @@ const toggleNightMode = () => {
               @click="settingsOpen = !settingsOpen"
             >
               <Settings
-                class="size-4 transition-transform duration-300"
+                class="size-4 text-zinc-500 transition-transform duration-300 dark:text-zinc-400"
                 :class="settingsOpen ? 'rotate-90' : ''"
                 aria-hidden="true"
               />
@@ -161,7 +162,7 @@ const toggleNightMode = () => {
               <div class="overflow-hidden">
                 <div class="flex items-center gap-3 py-2 pr-3 pl-10 text-sm">
                   <Moon
-                    class="size-4 text-muted-foreground"
+                    class="size-4 text-indigo-500 dark:text-indigo-400"
                     aria-hidden="true"
                   />
                   <span id="nightmode-label">Nachtmodus</span>

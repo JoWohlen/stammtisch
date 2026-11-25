@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Beer, CalendarDays, ChevronRight, Crown, GlassWater, Handshake, MapPin, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
+import { categoryColor, ICON_COLOR } from '@/lib/icon-colors'
 
 const { overviewStats: s, participants, getTeilnehmer } = useStammtisch()
 
@@ -14,11 +15,11 @@ const EURO = '\u00A0€'
 const perVisit = (n: number) => n / Math.max(s.besuche, 1)
 
 const tiles = [
-  { label: 'Besuche', icon: CalendarDays, value: formatNumber(s.besuche), sub: s.ersterBesuch ? `seit ${formatDate(s.ersterBesuch)}` : undefined },
-  { label: 'Mitglieder', icon: Users, value: formatNumber(s.teilnehmer), sub: letzterBeitritt ? `seit ${formatDate(letzterBeitritt)}` : undefined },
-  { label: 'Biere gesamt', icon: Beer, value: fitForms(s.biere), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
-  { label: 'Liter Bier', icon: GlassWater, value: fitForms(s.liter, { digits: 1, suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
-  { label: 'Gesamtkosten', icon: Wallet, value: fitForms(s.kosten, { suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
+  { label: 'Besuche', icon: CalendarDays, iconClass: ICON_COLOR.termine, value: formatNumber(s.besuche), sub: s.ersterBesuch ? `seit ${formatDate(s.ersterBesuch)}` : undefined },
+  { label: 'Mitglieder', icon: Users, iconClass: ICON_COLOR.personen, value: formatNumber(s.teilnehmer), sub: letzterBeitritt ? `seit ${formatDate(letzterBeitritt)}` : undefined },
+  { label: 'Biere gesamt', icon: Beer, iconClass: ICON_COLOR.bier, value: fitForms(s.biere), sub: `Ø ${formatNumber(perVisit(s.biere), 1)} pro Abend` },
+  { label: 'Liter Bier', icon: GlassWater, iconClass: ICON_COLOR.bier, value: fitForms(s.liter, { digits: 1, suffix: ' L' }), sub: `Ø ${formatNumber(perVisit(s.liter), 1)} L pro Abend` },
+  { label: 'Gesamtkosten', icon: Wallet, iconClass: ICON_COLOR.geld, value: fitForms(s.kosten, { suffix: EURO }), sub: `Ø ${formatEuro(perVisit(s.kosten))} pro Abend` },
   ...(s.trend
     ? [{
         label: 'Ø Bewertung',
@@ -32,9 +33,9 @@ const tiles = [
 const b = s.bestesBrauhaus
 const categories = b
   ? [
-      { label: 'Location', icon: MapPin, value: b.location },
-      { label: 'Service', icon: Handshake, value: b.service },
-      { label: 'Essen', icon: Utensils, value: b.essen },
+      { label: 'Location', icon: MapPin, color: categoryColor('location'), value: b.location },
+      { label: 'Service', icon: Handshake, color: categoryColor('service'), value: b.service },
+      { label: 'Essen', icon: Utensils, color: categoryColor('essen'), value: b.essen },
     ]
   : []
 </script>
@@ -92,6 +93,7 @@ const categories = b
                 <component
                   :is="c.icon"
                   class="size-3 shrink-0"
+                  :style="{ color: c.color }"
                   aria-hidden="true"
                 />
                 {{ c.label }}

@@ -4,7 +4,7 @@ import { type FunctionalComponent, h } from 'vue'
  * Award icons Lucide doesn't have (Kölsch, Kurze, Dom), drawn on Lucide's 24px grid with the same
  * stroke style, so they sit next to Lucide icons and take `class` (size, colour) the same way.
  */
-const icon = (name: string, paths: string[]): FunctionalComponent => {
+const icon = (name: string, paths: string[], strokeWidth = 2): FunctionalComponent => {
   const c: FunctionalComponent = (_, { attrs }) => h('svg', {
     'xmlns': 'http://www.w3.org/2000/svg',
     'width': 24,
@@ -12,7 +12,7 @@ const icon = (name: string, paths: string[]): FunctionalComponent => {
     'viewBox': '0 0 24 24',
     'fill': 'none',
     'stroke': 'currentColor',
-    'stroke-width': 2,
+    'stroke-width': strokeWidth,
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round',
     'class': `lucide lucide-${name}`,
@@ -44,16 +44,6 @@ export const StangeEuro = icon('stange-euro', [
   'M13.5 13h5',
 ])
 
-/** beer tap with dripping spout, for the Bierbrunnen */
-export const Zapfhahn = icon('zapfhahn', [
-  'M4 6v4',
-  'M4 8h11a3 3 0 0 1 3 3v2',
-  'M12 8V3',
-  'M10 3h4',
-  'M18 17v.5',
-  'M18 20.5v.5',
-])
-
 /** two shot glasses */
 export const Kurze = icon('kurze', [
   'M3 9h7l-1 11H4z',
@@ -81,3 +71,48 @@ export const KoelnerDom = icon('koelner-dom', [
   'M10.5 14v7',
   'M16.5 14v7',
 ])
+
+/** a money sack: tied at the neck with a frilled top, a euro sign on the bulging body */
+export const Geldsack = icon('geldsack', [
+  'M10 7 8.5 3.5c1.2.6 2.3.6 3.5 0 1.2.6 2.3.6 3.5 0L14 7',
+  'M9.5 7h5',
+  'M9.5 7C5.5 9.5 4 13 4 16a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5c0-3-1.5-6.5-5.5-9',
+  'M14.5 13a3 3 0 1 0 0 4',
+  'M9 15h3.5',
+])
+
+/** a group of three, in the style of Lucide's people icons: one in front, one peeking out on each side */
+export const Gruppe = icon('gruppe', [
+  'M15.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 1 1 7 0',
+  'M17 21v-2a4 4 0 0 0-4-4h-2a4 4 0 0 0-4 4v2',
+  'M17 3.5a3.5 3.5 0 0 1 0 7',
+  'M22 21v-2a4 4 0 0 0-3-3.87',
+  'M7 3.5a3.5 3.5 0 0 0 0 7',
+  'M2 21v-2a4 4 0 0 1 3-3.87',
+])
+
+/** a sheep's head from the front, for the Herdentier: woolly tuft, long face, ears to the sides, dot eyes */
+export const Schaf = icon('schaf', [
+  'M6 10a2.5 2.5 0 0 1 1-4.5 3 3 0 0 1 5-3 3 3 0 0 1 5 3 2.5 2.5 0 0 1 1 4.5',
+  'M7 11c0-2.5 2.2-3.5 5-3.5s5 1 5 3.5v6a5 5 0 0 1-10 0z',
+  'M7 10.5c-1.5-.8-3-.8-4 0 .8 1.2 2.4 1.2 4 .8',
+  'M17 10.5c1.5-.8 3-.8 4 0-.8 1.2-2.4 1.2-4 .8',
+  'M10 14h.01',
+  'M14 14h.01',
+  'M11 19h2',
+])
+
+/** a running figure, for the Marathonläufer (shape from Tabler Icons' "run", MIT licence) */
+export const Laeufer = icon('laeufer', [
+  'M12 4a1 1 0 1 0 2 0a1 1 0 1 0 -2 0',
+  'M4 17l5 1l.75 -1.5',
+  'M15 21l0 -4l-4 -3l1 -6',
+  'M7 12l0 -3l5 -1l3 3l3 1',
+])
+
+/** a plain Christian cross from two fat bars, for "Auferstanden": long upright, crossbar near the top
+ * (the rounded ends stay inside the 24px box) */
+export const Kreuz = icon('kreuz', [
+  'M12 2.5v19',
+  'M5 8h14',
+], 3.5)

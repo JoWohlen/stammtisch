@@ -3,6 +3,7 @@ import { Beer, CalendarDays, CircleDollarSign, Compass, GlassWater, Hash, Martin
 import type { Visit } from '#shared/types'
 import { useMediaQuery } from '@vueuse/core'
 import { type FitOptions, fitForms, formatDate, formatScore } from '@/lib/format'
+import { ICON_COLOR } from '@/lib/icon-colors'
 
 const props = defineProps<{ visit: Visit }>()
 
@@ -29,16 +30,16 @@ const planerPath = computed(() => memberPath(props.visit.planer))
 const tiles = computed(() => {
   const v = props.visit
   return [
-    { label: 'Mitglieder', icon: Users, value: dash(v.mitglieder) },
-    { label: 'Gäste', icon: UserPlus, value: dash(v.gaeste) },
-    { label: 'Rechnung', icon: Wallet, value: phone.value ? rounded(v.rechnung) : dash(v.rechnung, EURO) },
-    { label: '€ pro Kopf', icon: Receipt, value: dash(perHead(v.rechnung), EURO) },
-    { label: 'Preis/Leistung', icon: Scale, value: dash(v.averages.preisLeistung, { digits: 2 }), sub: '€ pro Kopf / Gesamt' },
-    { label: 'Biere', icon: Beer, value: dash(v.biere) },
-    { label: 'Liter Bier', icon: GlassWater, value: dash(v.liter, { digits: 1, suffix: ' L' }) },
-    { label: 'Bierpreis', icon: CircleDollarSign, value: dash(v.bierpreis, EURO) },
-    { label: 'Kurze', icon: Martini, value: dash(v.kurze) },
-    { label: 'Bier pro Kopf', icon: Beer, value: dash(perHead(v.biere), { digits: 1 }) },
+    { label: 'Mitglieder', icon: Users, iconClass: ICON_COLOR.personen, value: dash(v.mitglieder) },
+    { label: 'Gäste', icon: UserPlus, iconClass: ICON_COLOR.personen, value: dash(v.gaeste) },
+    { label: 'Rechnung', icon: Wallet, iconClass: ICON_COLOR.geld, value: phone.value ? rounded(v.rechnung) : dash(v.rechnung, EURO) },
+    { label: '€ pro Kopf', icon: Receipt, iconClass: ICON_COLOR.geld, value: dash(perHead(v.rechnung), EURO) },
+    { label: 'Preis/Leistung', icon: Scale, iconClass: ICON_COLOR.geld, value: dash(v.averages.preisLeistung, { digits: 2 }), sub: '€ pro Kopf / Gesamt' },
+    { label: 'Biere', icon: Beer, iconClass: ICON_COLOR.bier, value: dash(v.biere) },
+    { label: 'Liter Bier', icon: GlassWater, iconClass: ICON_COLOR.bier, value: dash(v.liter, { digits: 1, suffix: ' L' }) },
+    { label: 'Bierpreis', icon: CircleDollarSign, iconClass: ICON_COLOR.geld, value: dash(v.bierpreis, EURO) },
+    { label: 'Kurze', icon: Martini, iconClass: ICON_COLOR.kurze, value: dash(v.kurze) },
+    { label: 'Bier pro Kopf', icon: Beer, iconClass: ICON_COLOR.bier, value: dash(perHead(v.biere), { digits: 1 }) },
   ]
 })
 </script>
@@ -51,7 +52,7 @@ const tiles = computed(() => {
       </CardTitle>
       <CardDescription class="flex flex-wrap gap-2 pt-1">
         <Badge variant="outline">
-          <CalendarDays /> {{ formatDate(visit.date) }}
+          <CalendarDays :class="ICON_COLOR.termine" /> {{ formatDate(visit.date) }}
         </Badge>
         <Badge variant="outline">
           <Hash /> Besuch Nr. {{ visit.nr }}
@@ -62,20 +63,20 @@ const tiles = computed(() => {
           as-child
         >
           <NuxtLink :to="planerPath">
-            <Compass /> Planer: {{ visit.planer }}
+            <Compass :class="ICON_COLOR.planer" /> Planer: {{ visit.planer }}
           </NuxtLink>
         </Badge>
         <Badge
           v-else
           variant="outline"
         >
-          <Compass /> Planer: {{ visit.planer ?? '–' }}
+          <Compass :class="ICON_COLOR.planer" /> Planer: {{ visit.planer ?? '–' }}
         </Badge>
         <Badge variant="outline">
-          <Tag /> {{ visit.bier ?? '–' }}
+          <Tag :class="ICON_COLOR.bier" /> {{ visit.bier ?? '–' }}
         </Badge>
         <Badge variant="outline">
-          <Star /> {{ raters }} Bewertungen · Ø {{ formatScore(visit.averages.gesamt) }}
+          <Star :class="ICON_COLOR.bewertung" /> {{ raters }} Bewertungen · Ø {{ formatScore(visit.averages.gesamt) }}
         </Badge>
         <AwardBadge
           v-for="a in awards"
