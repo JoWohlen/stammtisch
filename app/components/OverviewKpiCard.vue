@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Beer, CalendarDays, Crown, GlassWater, Handshake, MapPin, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
+import { Beer, CalendarDays, ChevronRight, Crown, GlassWater, Handshake, MapPin, Trophy, Users, Utensils, Wallet } from '@lucide/vue'
 import { fitForms, formatDate, formatEuro, formatNumber, formatScore } from '@/lib/format'
 
 const { overviewStats: s, participants, getTeilnehmer } = useStammtisch()
