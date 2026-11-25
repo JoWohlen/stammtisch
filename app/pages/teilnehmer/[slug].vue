@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { formatDate } from '@/lib/format'
-import { memberColor } from '@/lib/members'
+// a new page per member, so the carousel starts fresh on the one swiped to
+definePageMeta({ key: route => route.fullPath })
 
 const route = useRoute()
-const { getTeilnehmer, getMemberAwards } = useStammtisch()
+const { getTeilnehmer } = useStammtisch()
 
 const teilnehmer = getTeilnehmer(String(route.params.slug))
 if (!teilnehmer) {
@@ -11,47 +11,19 @@ if (!teilnehmer) {
 }
 
 useHead({ title: `${teilnehmer.name} · Stammtisch-Tracker` })
-
-const awards = getMemberAwards(teilnehmer.name)
-
-const browse = useBrowse('teilnehmer', computed(() => ({ slug: teilnehmer.slug })))
+// template: the member's page with the previous and next member beside it, to swipe through
 </script>
 
 <template>
-  <AppPage
-    :title="teilnehmer.name"
-    :description="`Seit ${formatDate(teilnehmer.stats.ersterBesuch)} dabei`"
-    back
+  <BrowseCarousel
+    v-slot="{ slug, nav, onGo }"
+    kind="teilnehmer"
+    :slug="teilnehmer.slug"
   >
-    <template #nav>
-      <BrowseNav
-        v-bind="{ prev: browse.prev.value, next: browse.next.value, counter: browse.counter.value }"
-        @go="browse.go"
-      />
-    </template>
-    <template #title>
-      <span
-        class="size-4 shrink-0 rounded-full"
-        :style="{ backgroundColor: memberColor(teilnehmer.name) }"
-        aria-hidden="true"
-      />
-      {{ teilnehmer.name }}
-    </template>
-    <template
-      v-if="awards.length"
-      #header
-    >
-      <div class="mt-2 flex flex-wrap gap-1.5">
-        <AwardBadge
-          v-for="a in awards"
-          :key="a.key"
-          :award="a"
-        />
-      </div>
-    </template>
-
-    <TeilnehmerBilanzCard :teilnehmer="teilnehmer" />
-    <TeilnehmerZeitverlaufCard :teilnehmer="teilnehmer" />
-    <TeilnehmerVotesCard :teilnehmer="teilnehmer" />
-  </AppPage>
+    <TeilnehmerDetail
+      :slug="slug"
+      :nav="nav"
+      @go="onGo"
+    />
+  </BrowseCarousel>
 </template>

@@ -26,6 +26,7 @@
     "@vueuse/core": "^15.0.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
+    "embla-carousel-vue": "^8.6.0",
     "ml-pca": "^4.1.1",
     "nuxt": "^4.6.4",
     "qrcode": "^1.5.4",

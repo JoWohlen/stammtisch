@@ -19,32 +19,25 @@ const KATEGORIEN: { key: Kategorie, label: string, short: string, icon: Componen
 ]
 const keys = KATEGORIEN.map(k => k.key)
 
-const kategorie = ref<Kategorie>('bewertungen')
-const aktiv = computed(() => KATEGORIEN.find(k => k.key === kategorie.value)!)
-/** slide direction of the last switch, for the transition */
-const dir = ref<'next' | 'prev'>('next')
+/** the four sections sit side by side in a carousel: swiping drags the page along, the tabs scroll it */
+const index = ref(0)
+const kategorie = computed(() => keys[index.value]!)
+const aktiv = computed(() => KATEGORIEN[index.value]!)
+const carousel = useTemplateRef('carousel')
+
+function select(k: Kategorie) {
+  index.value = keys.indexOf(k)
+}
 
 // ?kategorie=… keeps the tab on reload and in shared links (read after hydration, the prerendered page shows the first)
 const route = useRoute()
 const router = useRouter()
 onMounted(() => {
-  const q = String(route.query.kategorie ?? '')
-  if (keys.includes(q as Kategorie)) kategorie.value = q as Kategorie
+  const i = keys.indexOf(String(route.query.kategorie ?? '') as Kategorie)
+  if (i > 0) carousel.value?.jumpTo(i)
 })
-
-function select(k: Kategorie) {
-  if (k === kategorie.value) return
-  dir.value = keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'next' : 'prev'
-  kategorie.value = k
+watch(kategorie, (k) => {
   router.replace({ query: { ...route.query, kategorie: k === keys[0] ? undefined : k } })
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-// swipe left → next category, right → previous (charts that scroll or pan themselves are left alone)
-useHorizontalSwipe((d) => {
-  const i = keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)
-  const k = keys[i]
-  if (k) select(k)
 })
 </script>
 
@@ -95,67 +88,41 @@ useHorizontalSwipe((d) => {
       </p>
     </template>
 
-    <!-- one category at a time; cards in a category: wide ones span both columns -->
-    <Transition
-      :name="`slide-${dir}`"
-      mode="out-in"
+    <!-- one section per page; only the shown one and its neighbours are built. Cards: wide ones span both columns -->
+    <PageCarousel
+      ref="carousel"
+      v-model:index="index"
+      :count="KATEGORIEN.length"
+      :labels="KATEGORIEN.map(k => k.label)"
     >
-      <section
-        :key="kategorie"
-        class="grid grid-cols-1 gap-6 lg:grid-cols-2"
-      >
-        <template v-if="kategorie === 'bewertungen'">
-          <AnalyseScoreTimelineCard class="lg:col-span-2" />
-          <AnalysePreisLeistungCard class="lg:col-span-2" />
-          <AnalyseKonsensCard class="lg:col-span-2" />
-          <AnalyseGeschmackCard class="lg:col-span-2" />
-          <AnalyseNotenverteilungCard class="lg:col-span-2" />
-          <AnalysePcaCard class="lg:col-span-2" />
-          <AnalysePlanerBiasCard class="lg:col-span-2" />
-        </template>
-        <template v-else-if="kategorie === 'termine'">
-          <AnalyseAnwesenheitCard class="lg:col-span-2" />
-          <AnalyseSaisonCard />
-          <AnalyseRhythmusCard />
-        </template>
-        <template v-else-if="kategorie === 'bier'">
-          <AnalyseBierpreisCard />
-          <AnalyseBierbrilleCard />
-          <AnalyseBierBewertungCard class="lg:col-span-2" />
-          <AnalyseBierCard class="lg:col-span-2" />
-        </template>
-        <template v-else>
-          <AnalyseKarteCard class="lg:col-span-2" />
-        </template>
-      </section>
-    </Transition>
+      <template #default="{ i, near }">
+        <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <template v-if="!near" />
+          <template v-else-if="keys[i] === 'bewertungen'">
+            <AnalyseScoreTimelineCard class="lg:col-span-2" />
+            <AnalysePreisLeistungCard class="lg:col-span-2" />
+            <AnalyseKonsensCard class="lg:col-span-2" />
+            <AnalyseGeschmackCard class="lg:col-span-2" />
+            <AnalyseNotenverteilungCard class="lg:col-span-2" />
+            <AnalysePcaCard class="lg:col-span-2" />
+            <AnalysePlanerBiasCard class="lg:col-span-2" />
+          </template>
+          <template v-else-if="keys[i] === 'termine'">
+            <AnalyseAnwesenheitCard class="lg:col-span-2" />
+            <AnalyseSaisonCard />
+            <AnalyseRhythmusCard />
+          </template>
+          <template v-else-if="keys[i] === 'bier'">
+            <AnalyseBierpreisCard />
+            <AnalyseBierbrilleCard />
+            <AnalyseBierBewertungCard class="lg:col-span-2" />
+            <AnalyseBierCard class="lg:col-span-2" />
+          </template>
+          <template v-else>
+            <AnalyseKarteCard class="lg:col-span-2" />
+          </template>
+        </section>
+      </template>
+    </PageCarousel>
   </AppPage>
 </template>
-
-<style scoped>
-.slide-next-enter-active,
-.slide-next-leave-active,
-.slide-prev-enter-active,
-.slide-prev-leave-active {
-  transition: transform 180ms ease, opacity 180ms ease;
-}
-.slide-next-enter-from,
-.slide-prev-leave-to {
-  transform: translateX(2rem);
-  opacity: 0;
-}
-.slide-next-leave-to,
-.slide-prev-enter-from {
-  transform: translateX(-2rem);
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .slide-next-enter-active,
-  .slide-next-leave-active,
-  .slide-prev-enter-active,
-  .slide-prev-leave-active {
-    transition: none;
-  }
-}
-</style>
