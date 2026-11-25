@@ -12,7 +12,7 @@ const pages = [
 ]
 /** below the divider, above the settings */
 const extras = [
-  { to: '/teilen', label: 'Teilen', icon: QrCode, color: 'text-pink-500' },
+  { to: '/teilen', label: 'Teilen', icon: QrCode, color: 'text-foreground dark:text-white' },
 ]
 
 const open = ref(false)
