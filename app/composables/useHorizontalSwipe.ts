@@ -55,3 +55,21 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void) {
     onSwipe(e.key === 'ArrowRight' ? 'left' : 'right')
   })
 }
+
+/**
+ * "Nothing more this way": nudges `el` (default: the page's <main>) a little in the swipe direction
+ * and springs it back, for a swipe or arrow key at the first / last entry. Skipped with reduced motion.
+ */
+export function edgeBump(dir: 'left' | 'right', el: Element | null = document.querySelector('main')) {
+  if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const dx = dir === 'left' ? -14 : 14
+  el.getAnimations().forEach(a => a.id === 'edge-bump' && a.cancel())
+  el.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: `translateX(${dx}px)`, offset: 0.3, easing: 'ease-in' },
+      { transform: 'translateX(0)' },
+    ],
+    { id: 'edge-bump', duration: 280, easing: 'ease-out' },
+  )
+}

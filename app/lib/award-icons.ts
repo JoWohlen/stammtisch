@@ -1,4 +1,4 @@
-import { type FunctionalComponent, h } from 'vue'
+import { type Component, type FunctionalComponent, h } from 'vue'
 
 /**
  * Award icons Lucide doesn't have (Kölsch, Kurze, Dom), drawn on Lucide's 24px grid with the same
@@ -19,6 +19,22 @@ const icon = (name: string, paths: string[], strokeWidth = 2): FunctionalCompone
     ...attrs,
   }, paths.map(d => h('path', { d })))
   c.displayName = name
+  // read by `enlarge` to keep a non-default line width
+  Object.assign(c, { strokeWidth })
+  return c
+}
+
+/**
+ * Draws an existing icon (e.g. a Lucide one) `scale` times bigger around its centre without changing
+ * its layout box, with the line width corrected so it matches the other icons.
+ */
+export const enlarge = (comp: Component, scale: number): FunctionalComponent => {
+  const c: FunctionalComponent = (_, { attrs }) => h(comp, {
+    ...attrs,
+    'stroke-width': Number(attrs['stroke-width'] ?? (comp as { strokeWidth?: number }).strokeWidth ?? 2) / scale,
+    'style': [attrs.style, { transform: `scale(${scale})` }],
+  })
+  c.displayName = `enlarged-${(comp as { name?: string }).name ?? 'icon'}`
   return c
 }
 

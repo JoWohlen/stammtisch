@@ -21,6 +21,8 @@ const kategorie = ref<Kategorie>('bewertungen')
 const aktiv = computed(() => KATEGORIEN.find(k => k.key === kategorie.value)!)
 /** slide direction of the last switch, for the transition */
 const dir = ref<'next' | 'prev'>('next')
+/** the current category's content, nudged when swiping past the first / last one */
+const content = ref<HTMLElement | null>(null)
 
 // ?kategorie=… keeps the tab on reload and in shared links (read after hydration, the prerendered page shows the first)
 const route = useRoute()
@@ -43,6 +45,7 @@ useHorizontalSwipe((d) => {
   const i = keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)
   const k = keys[i]
   if (k) select(k)
+  else edgeBump(d, content.value)
 })
 </script>
 
@@ -95,6 +98,7 @@ useHorizontalSwipe((d) => {
     >
       <section
         :key="kategorie"
+        ref="content"
         class="grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
         <template v-if="kategorie === 'bewertungen'">

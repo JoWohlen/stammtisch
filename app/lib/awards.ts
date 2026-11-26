@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 import { Anvil, BadgePercent, Barrel, Beer, Bird, Bomb, CakeSlice, CalendarCheck, CalendarPlus, ChefHat, Clover, Coins, Compass, ConciergeBell, Crown, Flag, Gavel, Gem, Gift, Ham, HandPlatter, Heart, HeartHandshake, Hourglass, Landmark, Map as MapIcon, MirrorRound, PartyPopper, PiggyBank, Plane, Rocket, Ruler, Scale, ScrollText, Shuffle, Snail, Sparkles, Star, Store, Swords, Tent, ThumbsDown, TreePine, TrendingDown, Trophy, User, UserPlus, UsersRound, UtensilsCrossed, Wheat, Wind } from '@lucide/vue'
-import { Geldsack, Gruppe, KoelnerDom, KoelschStange, Kreuz, KurzFrei, Kurze, Laeufer, Schaf, StangeEuro, StangeLeer } from '@/lib/award-icons'
+import { enlarge, Geldsack, Gruppe, KoelnerDom, KoelschStange, Kreuz, KurzFrei, Kurze, Laeufer, Schaf, StangeEuro, StangeLeer } from '@/lib/award-icons'
 import type { Category, Coords, Participant, Visit } from '#shared/types'
 import { byDate as sortByDate, CATEGORIES, heads, mean, raterNames } from '@/lib/stats'
 import { formatDate, formatEuro, formatNumber, formatScore, formatUpTo1 } from '@/lib/format'
@@ -59,7 +59,9 @@ export const DOM: Coords = { lat: 50.941320694306455, lng: 6.9582273908731676 }
 /** vote spread needs a few voters to mean anything */
 const MIN_SPREAD_RATERS = 3
 
-const def = (d: AwardDef) => d
+/** all award icons are drawn this much bigger than their layout box, so they read better next to the text */
+const ICON_SCALE = 1.2
+const def = (d: AwardDef): AwardDef => ({ ...d, icon: enlarge(d.icon, ICON_SCALE) })
 
 export const AWARD_DEFS: AwardDef[] = [
   // ---- Brauhaus (per visit) ----

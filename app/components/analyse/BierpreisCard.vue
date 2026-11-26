@@ -2,11 +2,11 @@
 import { formatDate, formatEuro } from '@/lib/format'
 import type { ScatterPoint } from '@/lib/chart'
 
-/** Bierpreis-Index: the price of one beer per visit over time, with a linear trend. */
+/** Bierpreis-Index: the price of one beer per visit over time, with a quadratic trend. */
 const { visits } = useStammtisch()
 
 const YEAR = 365.25 * 24 * 60 * 60 * 1000
-/** dates as fractional years, so the trend's slope reads as € per year */
+/** dates as fractional years */
 const toYear = (iso: string) => 1970 + Date.parse(`${iso}T00:00:00Z`) / YEAR
 
 const priced = visits.filter((v): v is typeof v & { bierpreis: number } => v.bierpreis != null)
@@ -56,6 +56,7 @@ const full = ref(false)
           :x-format="x => String(Math.round(x))"
           :y-format="y => formatEuro(y, true)"
           :x-ticks="years"
+          :degree="2"
           x-label="Datum"
           y-label="Bierpreis"
           :full="full"

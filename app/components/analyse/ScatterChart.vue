@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useElementSize, useScroll } from '@vueuse/core'
-import { linearFit, niceTicks } from '@/lib/analysis'
+import { niceTicks, polyFit } from '@/lib/analysis'
 import type { ScatterPoint } from '@/lib/chart'
 
 /**
- * Dots on one x and one y axis, with an optional least-squares trend line.
+ * Dots on one x and one y axis, with an optional least-squares trend (a line, or a
+ * polynomial curve with `degree` > 1).
  * Hovering (or tapping) shows the nearest dot's tooltip; clicking a dot opens its link.
  * Like the deviation bar charts, the y axis stays put and the plot scrolls sideways once
  * there would be less than MIN_GAP of width per dot.
@@ -17,6 +18,8 @@ const props = withDefaults(defineProps<{
   xLabel: string
   yLabel: string
   trend?: boolean
+  /** degree of the least-squares trend polynomial (1 = straight line) */
+  degree?: number
   label: string
   /** custom x ticks (e.g. years on a date axis) */
   xTicks?: { value: number, label: string }[]
@@ -24,7 +27,7 @@ const props = withDefaults(defineProps<{
   full?: boolean
   /** start scrolled to the right end (e.g. the newest visits on a date axis) */
   startAtEnd?: boolean
-}>(), { trend: true })
+}>(), { trend: true, degree: 1 })
 
 const box = useTemplateRef<HTMLDivElement>('box')
 const { width, height: boxHeight } = useElementSize(box)
@@ -65,13 +68,20 @@ const domain = computed(() => {
 const sx = (x: number) => PAD.inner + ((x - domain.value.x0) / (domain.value.x1 - domain.value.x0 || 1)) * (plotW.value - PAD.inner - PAD.right)
 const sy = (y: number) => PAD.top + (1 - (y - domain.value.y0) / (domain.value.y1 - domain.value.y0 || 1)) * (h.value - PAD.top - PAD.bottom)
 
-const fit = computed(() => (props.trend ? linearFit(xs.value, ys.value) : null))
-const fitLine = computed(() => {
+const fit = computed(() => (props.trend ? polyFit(xs.value, ys.value, props.degree) : null))
+/** the trend as an SVG path, sampled across the data's x range and clipped to the plot's y range */
+const fitPath = computed(() => {
   const f = fit.value
   if (!f) return null
   const a = Math.min(...xs.value)
   const b = Math.max(...xs.value)
-  return { x1: sx(a), y1: sy(f.intercept + f.slope * a), x2: sx(b), y2: sy(f.intercept + f.slope * b) }
+  const { y0, y1 } = domain.value
+  const steps = props.degree > 1 ? 80 : 1
+  const pts = Array.from({ length: steps + 1 }, (_, i) => {
+    const x = a + ((b - a) * i) / steps
+    return `${sx(x).toFixed(1)},${sy(Math.min(y1, Math.max(y0, f(x)))).toFixed(1)}`
+  })
+  return `M${pts.join('L')}`
 })
 
 // ---- hover: nearest dot within reach --------------------------------------
@@ -185,9 +195,10 @@ watch(() => props.full, () => (startedAtEnd = false))
             >{{ t.label }}</text>
           </g>
 
-          <line
-            v-if="fitLine"
-            v-bind="fitLine"
+          <path
+            v-if="fitPath"
+            :d="fitPath"
+            fill="none"
             class="stroke-muted-foreground"
             stroke-width="2"
             stroke-dasharray="6 4"

@@ -9,6 +9,9 @@ const props = defineProps<{ visit: Visit }>()
 
 const { getAwards, memberPath } = useStammtisch()
 
+/** the plain info badges get a gray fill, so they read as filled badges next to the coloured awards */
+const INFO_BADGE = 'border-transparent bg-foreground/10 [a&]:hover:bg-foreground/15'
+
 const awards = computed(() => getAwards(props.visit))
 
 const EURO: FitOptions = { digits: 2, suffix: '\u00A0€' }
@@ -51,15 +54,22 @@ const tiles = computed(() => {
         Der Abend
       </CardTitle>
       <CardDescription class="flex flex-wrap gap-2 pt-1">
-        <Badge variant="outline">
+        <Badge
+          variant="outline"
+          :class="INFO_BADGE"
+        >
           <CalendarDays :class="ICON_COLOR.termine" /> {{ formatDate(visit.date) }}
         </Badge>
-        <Badge variant="outline">
+        <Badge
+          variant="outline"
+          :class="INFO_BADGE"
+        >
           <Hash /> Besuch Nr. {{ visit.nr }}
         </Badge>
         <Badge
           v-if="planerPath"
           variant="outline"
+          :class="INFO_BADGE"
           as-child
         >
           <NuxtLink :to="planerPath">
@@ -69,13 +79,20 @@ const tiles = computed(() => {
         <Badge
           v-else
           variant="outline"
+          :class="INFO_BADGE"
         >
           <Compass :class="ICON_COLOR.planer" /> Planer: {{ visit.planer ?? '–' }}
         </Badge>
-        <Badge variant="outline">
+        <Badge
+          variant="outline"
+          :class="INFO_BADGE"
+        >
           <Tag :class="ICON_COLOR.bier" /> {{ visit.bier ?? '–' }}
         </Badge>
-        <Badge variant="outline">
+        <Badge
+          variant="outline"
+          :class="INFO_BADGE"
+        >
           <Star :class="ICON_COLOR.bewertung" /> {{ raters }} Bewertungen · Ø {{ formatScore(visit.averages.gesamt) }}
         </Badge>
         <AwardBadge

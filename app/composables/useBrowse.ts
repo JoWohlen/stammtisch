@@ -112,7 +112,11 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
     navigateTo(t.to, { replace: true })
   }
 
-  useHorizontalSwipe(dir => go(dir === 'left' ? next.value : prev.value))
+  useHorizontalSwipe((dir) => {
+    const t = dir === 'left' ? next.value : prev.value
+    if (t) go(t)
+    else edgeBump(dir)
+  })
 
   return { prev, next, counter, go }
 }

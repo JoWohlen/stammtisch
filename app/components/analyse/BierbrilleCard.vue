@@ -35,7 +35,7 @@ const full = ref(false)
         </CardTitle>
         <CardDescription v-if="!full">
           Bewerten wir einen Abend besser, je mehr wir getrunken haben? Ein Punkt pro Besuch:
-          Liter Bier pro Kopf gegen die Ø Bewertung der Runde, die gestrichelte Linie ist der Trend.
+          Liter Bier pro Kopf gegen die Ø Bewertung der Runde.
         </CardDescription>
         <CardAction class="flex items-center gap-2">
           <AnalyseScoreKeyTabs
@@ -60,6 +60,7 @@ const full = ref(false)
           :points="points"
           :x-format="x => `${formatUpTo1(x)} L`"
           :y-format="formatScore"
+          :trend="false"
           x-label="Liter Bier pro Kopf"
           :y-label="`Ø ${scoreKeyLabel(key)}`"
           :full="full"

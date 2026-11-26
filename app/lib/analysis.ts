@@ -66,6 +66,42 @@ export function linearFit(xs: number[], ys: number[]): { slope: number, intercep
   return { slope, intercept: my - slope * mx, r: pearson(xs, ys) }
 }
 
+/**
+ * least-squares polynomial y = c[0] + c[1]·x + … + c[degree]·x^degree;
+ * null with too few points (fewer than degree + 2) or a singular system.
+ * x is centred and scaled internally so higher powers stay well-conditioned.
+ */
+export function polyFit(xs: number[], ys: number[], degree: number): ((x: number) => number) | null {
+  const n = degree + 1
+  if (xs.length < n + 1) return null
+  const mx = mean(xs)
+  const scale = Math.max(...xs.map(x => Math.abs(x - mx))) || 1
+  const t = xs.map(x => (x - mx) / scale)
+  // normal equations, augmented with the right-hand side
+  const A = Array.from({ length: n }, (_, r) => [
+    ...Array.from({ length: n }, (_, c) => t.reduce((s, ti) => s + ti ** (r + c), 0)),
+    t.reduce((s, ti, i) => s + ys[i]! * ti ** r, 0),
+  ])
+  // Gauss-Jordan with partial pivoting
+  for (let i = 0; i < n; i++) {
+    let p = i
+    for (let k = i + 1; k < n; k++) if (Math.abs(A[k]![i]!) > Math.abs(A[p]![i]!)) p = k
+    ;[A[i], A[p]] = [A[p]!, A[i]!]
+    const piv = A[i]![i]!
+    if (Math.abs(piv) < 1e-12) return null
+    for (let k = 0; k < n; k++) {
+      if (k === i) continue
+      const f = A[k]![i]! / piv
+      for (let c = i; c <= n; c++) A[k]![c]! -= f * A[i]![c]!
+    }
+  }
+  const coef = A.map((row, i) => row[n]! / row[i]!)
+  return (x: number) => {
+    const u = (x - mx) / scale
+    return coef.reduceRight((acc, c) => acc * u + c, 0)
+  }
+}
+
 /** linear-interpolated quantile of an ascending list */
 export function quantile(sorted: number[], q: number): number {
   const pos = (sorted.length - 1) * q
