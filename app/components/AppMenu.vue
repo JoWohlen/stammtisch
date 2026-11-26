@@ -95,6 +95,9 @@ const toggleNightMode = () => {
         Menü
       </button>
 
+      <!-- easter egg: a Halsbandsittich now and then sits on the bar's bottom line -->
+      <SittichEasterEgg />
+
       <!-- fold-out: grid-rows 0fr → 1fr animates to the content's natural height -->
       <div
         id="app-menu-panel"
