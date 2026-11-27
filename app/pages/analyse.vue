@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import { formatDate } from '@/lib/format'
+import { serveBeer } from '@/lib/drunk'
 import { isKategorie, KATEGORIE_KEYS as keys, KATEGORIEN, type Kategorie } from '@/lib/analyse-kategorien'
 
 useHead({ title: 'Analyse · Stammtisch-Tracker' })
@@ -76,6 +77,10 @@ useHorizontalSwipe((d) => {
 
 <template>
   <AppPage title="Analyse">
+    <!-- easter egg: on the Bier tab, tapping the title serves a Gilden Kölsch (DrunkEasterEgg.vue) -->
+    <template #title>
+      <span @click="kategorie === 'bier' && serveBeer()">Analyse</span>
+    </template>
     <template
       v-if="zeitraum"
       #description

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onKeyStroke, useEventListener, useScrollLock } from '@vueuse/core'
 import { BEER_H, BEER_W, bottleRuns, capRuns } from '@/lib/beer-sprite'
-import { DRUNK_EVENT } from '@/lib/drunk'
+import { DRUNK_EVENT, SERVE_BEER_EVENT } from '@/lib/drunk'
 
 /**
- * Easter egg: shaking the phone (or pressing G on a keyboard) serves a Gilden Kölsch.
+ * Easter egg: shaking the phone (or pressing G on a keyboard, or tapping the "Analyse" title on the
+ * Bier tab, see pages/analyse.vue) serves a Gilden Kölsch.
  *
  * 1. The page fades to dark and a bottle fades in in the middle; only the bottle can be clicked.
  * 2. A click pops the cap off, then the bottle fades away
@@ -198,6 +199,9 @@ onKeyStroke(['g', 'G'], (ev) => {
   if (t?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return
   offer()
 })
+
+// other places in the app (lib/drunk.ts serveBeer)
+useEventListener(import.meta.client ? window : null, SERVE_BEER_EVENT, () => offer())
 
 // phone: a few hard jolts in a row
 let last: { x: number, y: number, z: number } | null = null

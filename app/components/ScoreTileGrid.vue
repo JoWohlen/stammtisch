@@ -136,7 +136,8 @@ const items = computed(() => {
 
       <CollapsibleContent>
         <CardContent class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
+          <!-- the score scale takes all the room right of the sort switch -->
+          <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <!-- phones: the sort switch spans the card, left to right -->
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               <span class="hidden text-sm text-muted-foreground sm:inline">Sortieren nach</span>
@@ -158,18 +159,18 @@ const items = computed(() => {
             </div>
             <div
               v-if="scale"
-              class="flex w-full flex-col gap-1 sm:w-48"
+              class="flex w-full flex-col gap-1 sm:w-auto sm:min-w-48 sm:flex-1"
               aria-hidden="true"
             >
-              <div
-                class="h-2.5 rounded-full"
-                :style="{ background: gradient }"
-              />
               <div class="flex justify-between text-xs text-muted-foreground tabular-nums">
                 <span>{{ formatScore(scale.min) }}</span>
                 <span>Ø {{ formatScore(scale.avg) }}</span>
                 <span>{{ formatScore(scale.max) }}</span>
               </div>
+              <div
+                class="h-2.5 rounded-full"
+                :style="{ background: gradient }"
+              />
             </div>
           </div>
 
