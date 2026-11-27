@@ -72,8 +72,8 @@ function materialAt(y: number): string[] {
   if (y === 11 || y === 26) return GOLD // thin lines round the neck label
   if (y > 11 && y < 26) return GREEN
   if (y >= 27 && y <= 29) return GOLD // band below the neck label
-  if (y === 64 || y === 65 || y === 89 || y === 90) return GOLD // bands of the body label
-  if (y > 65 && y < 89) return GREEN
+  if (y === 58 || y === 59 || y === 83 || y === 84) return GOLD // bands of the body label
+  if (y > 59 && y < 83) return GREEN
   return GLASS
 }
 
@@ -114,7 +114,7 @@ function stamp(grid: (string | null)[][], rows: string[], x0: number, y0: number
 
 /** condensation on the glass: [x, y] */
 const DROPS: [number, number][] = [
-  [5, 38], [15, 41], [8, 50], [18, 53], [4, 57], [12, 60], [20, 47], [6, 94], [14, 92], [19, 96], [10, 97], [14, 35], [9, 31],
+  [5, 38], [15, 41], [8, 50], [18, 53], [4, 52], [12, 55], [20, 47], [6, 94], [14, 92], [19, 96], [10, 97], [14, 35], [9, 31],
 ]
 
 export function bottleRuns(): Run[] {
@@ -129,9 +129,9 @@ export function bottleRuns(): Run[] {
   // neck label: a small gold crown; body label: emblem, "Gilden", "Kölsch"
   stamp(grid, ['X.X.X', 'XXXXX'], 10, 15, { X: GOLD[3]! })
   stamp(grid, ['XXX', '.X.'], 11, 19, { X: CREAM })
-  stamp(grid, ['X.X.X', 'XXXXX', 'XRRRX', 'XRRRX', '.XXX.'], 10, 68, { X: GOLD[3]!, R: RED })
-  write(grid, 'Gilden', 75, WHITE)
-  write(grid, 'Kölsch', 82, CREAM)
+  stamp(grid, ['X.X.X', 'XXXXX', 'XRRRX', 'XRRRX', '.XXX.'], 10, 62, { X: GOLD[3]!, R: RED })
+  write(grid, 'Gilden', 69, WHITE)
+  write(grid, 'Kölsch', 76, CREAM)
   for (const [x, y] of DROPS) if (grid[y]![x]) grid[y]![x] = 'rgb(255 255 255 / 0.45)'
   return toRuns(grid)
 }

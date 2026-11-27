@@ -104,19 +104,23 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
   const next = computed(() => at(position.value.i + 1))
   const counter = computed(() => (position.value.i === -1 ? null : { n: position.value.i + 1, total: position.value.list.length }))
 
-  /** replace, so "back" returns to the list instead of stepping through every swipe */
-  const go = (t: BrowseTarget | null) => {
-    if (!t) return
+  /**
+   * The page flies off like a swiped card, then the neighbour comes up from behind.
+   * replace, so "back" returns to the list instead of stepping through every swipe.
+   */
+  const go = async (t: BrowseTarget | null) => {
+    if (!t || isFlying(document.querySelector('main'))) return
+    const dir = t.to === next.value?.to ? 'left' : 'right'
+    await flyOut(dir)
     fromBrowse = true
-    pendingSlide = t.to === next.value?.to ? 'left' : 'right'
+    pendingSlide = dir
     navigateTo(t.to, { replace: true })
   }
 
-  useHorizontalSwipe((dir) => {
-    const t = dir === 'left' ? next.value : prev.value
-    if (t) go(t)
-    else edgeBump(dir)
-  })
+  useHorizontalSwipe(
+    dir => go(dir === 'left' ? next.value : prev.value),
+    { can: dir => !!(dir === 'left' ? next.value : prev.value) },
+  )
 
   return { prev, next, counter, go }
 }

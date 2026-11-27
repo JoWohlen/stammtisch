@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { Award, Beer, CalendarDays, ChartLine, ChevronDown, History, House, MapPin, Menu, Moon, QrCode, ScrollText, Search, Settings, Star, Users, X } from '@lucide/vue'
+import type { RouteLocationRaw } from 'vue-router'
+import { Award, Beer, CalendarDays, ChartLine, ChevronDown, History, House, MapPin, Menu, Moon, QrCode, ScrollText, Search, Settings, Star, Store, Users, X } from '@lucide/vue'
 import { onClickOutside, onKeyStroke, useColorMode, useEventListener } from '@vueuse/core'
 import { isKategorie, KATEGORIE_KEYS, KATEGORIEN, kategorieRoute, type Kategorie } from '@/lib/analyse-kategorien'
 import { ICON_COLOR } from '@/lib/icon-colors'
@@ -12,17 +13,11 @@ const memberPaths = participants.map(p => `/teilnehmer/${p.slug}`)
 const visitPaths = byDate(visits).map(v => `/brauhaus/${v.slug}?besuch=${v.nr}`)
 const rememberOrder = useBrowseList()
 
-const pages = [
-  { to: '/', label: 'Übersicht', icon: House, color: 'text-sky-500' },
-  // straight to the first member / the first Stammtisch; swiping there goes on in this order
-  { to: memberPaths[0]!, label: 'Mitglieder', icon: Users, color: ICON_COLOR.personen, section: '/teilnehmer/', browse: memberPaths },
-  { to: visitPaths[0]!, label: 'Stammtische', icon: Beer, color: ICON_COLOR.bier, section: '/brauhaus/', browse: visitPaths },
-  { to: '/analyse', label: 'Analyse', icon: ChartLine, color: 'text-indigo-500 dark:text-indigo-400', sub: true },
-  { to: '/satzung', label: 'Satzung', icon: ScrollText, color: 'text-orange-500' },
-  { to: '/awards', label: 'Awards', icon: Award, color: 'text-yellow-500' },
-  { to: '/timeline', label: 'Timeline', icon: History, color: 'text-teal-500' },
-  { to: '/suche', label: 'Suche', icon: Search, color: 'text-blue-500' },
-]
+const route = useRoute()
+
+/** a section inside a page, folded out under its menu entry */
+interface SubEntry { key: string, label: string, to: RouteLocationRaw, icon: Component, color: string, current: () => boolean }
+
 /** icons of the Analyse sections, in the colours used for these things across the app */
 const KATEGORIE_ICON: Record<Kategorie, { icon: Component, color: string }> = {
   bewertungen: { icon: Star, color: ICON_COLOR.bewertung },
@@ -30,6 +25,35 @@ const KATEGORIE_ICON: Record<Kategorie, { icon: Component, color: string }> = {
   bier: { icon: Beer, color: ICON_COLOR.bier },
   orte: { icon: MapPin, color: ICON_COLOR.orte },
 }
+const aktiveKategorie = computed(() => (isKategorie(route.query.kategorie) ? route.query.kategorie : KATEGORIE_KEYS[0]))
+const analyseSub: SubEntry[] = KATEGORIEN.map(k => ({
+  key: k.key,
+  label: k.label,
+  to: kategorieRoute(k.key),
+  ...KATEGORIE_ICON[k.key],
+  current: () => route.path.startsWith('/analyse') && aktiveKategorie.value === k.key,
+}))
+/** the two sections of the Awards page (ids as in pages/awards.vue) */
+const awardsSub: SubEntry[] = [
+  { key: 'brauhaeuser', label: 'Brauhäuser', icon: Store, color: ICON_COLOR.orte },
+  { key: 'mitglieder', label: 'Mitglieder', icon: Users, color: ICON_COLOR.personen },
+].map(a => ({
+  ...a,
+  to: `/awards#${a.key}`,
+  current: () => route.path.startsWith('/awards') && route.hash === `#${a.key}`,
+}))
+
+const pages = [
+  { to: '/', label: 'Übersicht', icon: House, color: 'text-sky-500' },
+  // straight to the first member / the first Stammtisch; swiping there goes on in this order
+  { to: memberPaths[0]!, label: 'Mitglieder', icon: Users, color: ICON_COLOR.personen, section: '/teilnehmer/', browse: memberPaths },
+  { to: visitPaths[0]!, label: 'Stammtische', icon: Beer, color: ICON_COLOR.bier, section: '/brauhaus/', browse: visitPaths },
+  { to: '/analyse', label: 'Analyse', icon: ChartLine, color: 'text-indigo-500 dark:text-indigo-400', sub: analyseSub },
+  { to: '/satzung', label: 'Satzung', icon: ScrollText, color: 'text-orange-500' },
+  { to: '/awards', label: 'Awards', icon: Award, color: 'text-yellow-500', sub: awardsSub },
+  { to: '/timeline', label: 'Timeline', icon: History, color: 'text-teal-500' },
+  { to: '/suche', label: 'Suche', icon: Search, color: 'text-blue-500' },
+]
 /** below the divider, above the settings */
 const extras = [
   { to: '/teilen', label: 'Teilen', icon: QrCode, color: 'text-foreground dark:text-white' },
@@ -37,8 +61,8 @@ const extras = [
 
 const open = ref(false)
 const settingsOpen = ref(false)
-/** the Analyse entry folds out its sections */
-const analyseOpen = ref(false)
+/** the entry (its `to`) whose sections are folded out, at most one */
+const subOpen = ref<string | null>(null)
 const root = useTemplateRef<HTMLElement>('root')
 const bar = useTemplateRef<HTMLElement>('bar')
 
@@ -67,15 +91,14 @@ const close = () => {
 }
 const toggle = () => {
   if (open.value) return close()
-  // on the Analyse page its sections are shown right away
-  analyseOpen.value = isActive('/analyse')
+  // on a page with sections they are shown right away
+  subOpen.value = pages.find(p => 'sub' in p && isActive(p.to))?.to ?? null
   open.value = true
 }
 
 onClickOutside(root, close)
 onKeyStroke('Escape', close)
 
-const route = useRoute()
 // fullPath: the Analyse sections only change the query
 watch(() => route.fullPath, () => {
   close()
@@ -84,8 +107,6 @@ watch(() => route.fullPath, () => {
 /** `section`: the entry stands for all pages under that path (every member, every Stammtisch) */
 const isActive = (to: string, section?: string) =>
   to === '/' ? route.path === '/' : route.path.startsWith(section ?? to)
-const aktiveKategorie = computed(() => (isKategorie(route.query.kategorie) ? route.query.kategorie : KATEGORIE_KEYS[0]))
-
 // 'auto' follows the OS until the switch is flipped once
 const mode = useColorMode({ storageKey: 'stammtisch-theme' })
 const nightMode = computed({
@@ -215,39 +236,39 @@ const toggleNightMode = () => {
                   <button
                     type="button"
                     class="grid h-9 w-10 place-items-center rounded-md"
-                    :aria-expanded="analyseOpen"
-                    aria-controls="app-menu-analyse"
-                    :aria-label="`${p.label}: Bereiche ${analyseOpen ? 'zuklappen' : 'aufklappen'}`"
-                    @click="analyseOpen = !analyseOpen"
+                    :aria-expanded="subOpen === p.to"
+                    :aria-controls="`app-menu-sub-${p.label}`"
+                    :aria-label="`${p.label}: Bereiche ${subOpen === p.to ? 'zuklappen' : 'aufklappen'}`"
+                    @click="subOpen = subOpen === p.to ? null : p.to"
                   >
                     <ChevronDown
                       class="size-4 transition-transform duration-200"
-                      :class="analyseOpen ? 'rotate-180' : ''"
+                      :class="subOpen === p.to ? 'rotate-180' : ''"
                       aria-hidden="true"
                     />
                   </button>
                 </div>
                 <div
                   v-if="'sub' in p"
-                  id="app-menu-analyse"
+                  :id="`app-menu-sub-${p.label}`"
                   class="grid transition-all duration-200 ease-out"
-                  :class="analyseOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
-                  :inert="!analyseOpen"
+                  :class="subOpen === p.to ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+                  :inert="subOpen !== p.to"
                 >
                   <div class="flex flex-col gap-0.5 overflow-hidden">
                     <NuxtLink
-                      v-for="k in KATEGORIEN"
+                      v-for="k in p.sub"
                       :key="k.key"
-                      :to="kategorieRoute(k.key)"
+                      :to="k.to"
                       class="flex items-center gap-2.5 rounded-md py-1.5 pr-3 pl-10 text-sm transition-colors"
-                      :class="isActive(p.to) && aktiveKategorie === k.key ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
-                      :aria-current="isActive(p.to) && aktiveKategorie === k.key ? 'page' : undefined"
+                      :class="k.current() ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
+                      :aria-current="k.current() ? 'page' : undefined"
                       @click="close"
                     >
                       <component
-                        :is="KATEGORIE_ICON[k.key].icon"
+                        :is="k.icon"
                         class="size-3.5"
-                        :class="KATEGORIE_ICON[k.key].color"
+                        :class="k.color"
                         aria-hidden="true"
                       />
                       {{ k.label }}
@@ -260,7 +281,7 @@ const toggleNightMode = () => {
                   class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
                   :class="isActive(p.to, 'section' in p ? p.section : undefined) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
                   :aria-current="isActive(p.to, 'section' in p ? p.section : undefined) ? 'page' : undefined"
-                  @click="'browse' in p && rememberOrder(p.browse)"
+                  @click="'browse' in p && p.browse && rememberOrder(p.browse)"
                 >
                   <component
                     :is="p.icon"

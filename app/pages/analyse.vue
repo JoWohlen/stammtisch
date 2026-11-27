@@ -16,8 +16,6 @@ const aktiv = computed(() => KATEGORIEN.find(k => k.key === kategorie.value)!)
 /** the categories left and right of the current one, for the swipe hint */
 const prevKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) - 1] ?? null)
 const nextKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) + 1] ?? null)
-/** slide direction of the last switch, for the transition */
-const dir = ref<'next' | 'prev'>('next')
 /** the current category's content, nudged when swiping past the first / last one */
 const content = ref<HTMLElement | null>(null)
 
@@ -47,16 +45,18 @@ function peek() {
   ], { duration: 1100, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' }), 700)
 }
 
-/** switches the visible category, sliding in the right direction */
+/** switches the visible category (it comes up from behind, see card-swap in main.css) */
 function show(k: Kategorie) {
   if (k === kategorie.value) return false
-  dir.value = keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'next' : 'prev'
   kategorie.value = k
   window.scrollTo({ top: 0, behavior: 'smooth' })
   return true
 }
 
-function select(k: Kategorie) {
+/** the current category flies off like a swiped card, then the chosen one comes up from behind */
+async function select(k: Kategorie) {
+  if (k === kategorie.value || isFlying(content.value)) return
+  await flyOut(keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'left' : 'right', content.value)
   if (show(k)) router.replace({ query: { ...route.query, kategorie: k === keys[0] ? undefined : k } })
 }
 
@@ -67,12 +67,14 @@ watch(() => route.query.kategorie, (q) => {
 })
 
 // swipe left → next category, right → previous (charts that scroll or pan themselves are left alone)
-useHorizontalSwipe((d) => {
-  const i = keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)
-  const k = keys[i]
-  if (k) select(k)
-  else edgeBump(d, content.value)
-})
+const neighbour = (d: 'left' | 'right') => keys[keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)]
+useHorizontalSwipe(
+  (d) => {
+    const k = neighbour(d)
+    if (k) select(k)
+  },
+  { target: () => content.value, can: d => !!neighbour(d) },
+)
 </script>
 
 <template>
@@ -166,7 +168,7 @@ useHorizontalSwipe((d) => {
 
     <!-- one category at a time; cards in a category: wide ones span both columns -->
     <Transition
-      :name="`slide-${dir}`"
+      name="card-swap"
       mode="out-in"
     >
       <section
@@ -201,34 +203,6 @@ useHorizontalSwipe((d) => {
     </Transition>
   </AppPage>
 </template>
-
-<style scoped>
-.slide-next-enter-active,
-.slide-next-leave-active,
-.slide-prev-enter-active,
-.slide-prev-leave-active {
-  transition: transform 180ms ease, opacity 180ms ease;
-}
-.slide-next-enter-from,
-.slide-prev-leave-to {
-  transform: translateX(2rem);
-  opacity: 0;
-}
-.slide-next-leave-to,
-.slide-prev-enter-from {
-  transform: translateX(-2rem);
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .slide-next-enter-active,
-  .slide-next-leave-active,
-  .slide-prev-enter-active,
-  .slide-prev-leave-active {
-    transition: none;
-  }
-}
-</style>
 
 <style>
 /* the arrows of the swipe hint nudge outwards now and then (global: used by Tailwind animate-[…] classes) */
