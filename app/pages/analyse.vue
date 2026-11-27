@@ -18,6 +18,8 @@ const prevKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) - 1] ?? 
 const nextKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) + 1] ?? null)
 /** the current category's content, nudged when swiping past the first / last one */
 const content = ref<HTMLElement | null>(null)
+/** transition of the last switch (card on touch screens, quick slide on desktop) */
+const swap = ref('card-swap')
 
 // ?kategorie=… keeps the tab on reload and in shared links (read after hydration, the prerendered page shows the first)
 const route = useRoute()
@@ -45,9 +47,10 @@ function peek() {
   ], { duration: 1100, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' }), 700)
 }
 
-/** switches the visible category (it comes up from behind, see card-swap in main.css) */
+/** switches the visible category (card-swap / slide-left / slide-right in main.css) */
 function show(k: Kategorie) {
   if (k === kategorie.value) return false
+  swap.value = swapTransition(keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'left' : 'right')
   kategorie.value = k
   window.scrollTo({ top: 0, behavior: 'smooth' })
   return true
@@ -168,7 +171,7 @@ useHorizontalSwipe(
 
     <!-- one category at a time; cards in a category: wide ones span both columns -->
     <Transition
-      name="card-swap"
+      :name="swap"
       mode="out-in"
     >
       <section

@@ -144,6 +144,23 @@
   transform: scale(0.92) translateY(0.75rem);
   opacity: 0;
 }
+/* desktop (no touch): the content slides over quickly instead (see swapTransition) */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
+}
+.slide-left-leave-to,
+.slide-right-enter-from {
+  transform: translateX(-2.5rem);
+  opacity: 0;
+}
+.slide-left-enter-from,
+.slide-right-leave-to {
+  transform: translateX(2.5rem);
+  opacity: 0;
+}
 /* opening a member / Brauhaus page: the old page fades, the new one grows into place */
 .open-detail-leave-active {
   transition: opacity 90ms ease-in;
@@ -159,10 +176,18 @@
   opacity: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-swap-enter-active {
+  .card-swap-enter-active,
+  .slide-left-enter-active,
+  .slide-left-leave-active,
+  .slide-right-enter-active,
+  .slide-right-leave-active {
     transition: opacity 120ms ease;
   }
   .card-swap-enter-from,
+  .slide-left-leave-to,
+  .slide-right-enter-from,
+  .slide-left-enter-from,
+  .slide-right-leave-to,
   .open-detail-enter-from {
     transform: none;
   }

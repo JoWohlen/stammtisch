@@ -30,11 +30,22 @@ const RUBBER = 0.22
 
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+/**
+ * The dating-app card effect is for touch screens only; with a mouse (desktop) the content just
+ * slides over quickly (slide-left / slide-right in main.css).
+ */
+export const cardSwipe = () => import.meta.client && window.matchMedia('(pointer: coarse)').matches && !reduceMotion()
+
+/** name of the enter / leave transition for a switch in direction `dir` ('left' = to the next) */
+export const swapTransition = (dir: 'left' | 'right') => (cardSwipe() ? 'card-swap' : `slide-${dir}`)
+
 /** the card's look at a horizontal offset: moved and tilted, like a card held at the top */
 const cardTransform = (dx: number) => `translateX(${dx}px) rotate(${(dx / window.innerWidth) * TILT}deg)`
 
 /** current drag offset of each element, so flying off continues from where the finger let go */
 const dragged = new WeakMap<Element, number>()
+/** finger speed (px/ms) at release, so the card flies on at that speed */
+const releaseSpeed = new WeakMap<Element, number>()
 /** running fly-off per element */
 const flying = new WeakMap<Element, Promise<void>>()
 
@@ -42,6 +53,14 @@ const flying = new WeakMap<Element, Promise<void>>()
 function setPivot(el: HTMLElement) {
   const r = el.getBoundingClientRect()
   el.style.transformOrigin = `${r.width / 2}px ${window.innerHeight * 1.5 - r.top}px`
+  // own GPU layer while it moves: the page is only moved, not repainted every frame
+  el.style.willChange = 'transform'
+}
+
+function resetCard(el: HTMLElement) {
+  el.style.transform = ''
+  el.style.transformOrigin = ''
+  el.style.willChange = ''
 }
 
 /** true while `el` is flying off (then a second swipe is ignored) */
@@ -54,7 +73,7 @@ export const isFlying = (el: Element | null | undefined) => !!el && flying.has(e
  * The element stays off-screen until it is replaced; if it is still there after a moment, it comes back.
  */
 export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.querySelector('main')): Promise<void> {
-  if (!el || reduceMotion()) return Promise.resolve()
+  if (!el || !cardSwipe()) return Promise.resolve()
   const running = flying.get(el)
   if (running) return running
   const dx = dragged.get(el) ?? 0
@@ -62,14 +81,17 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
   const toX = sign * window.innerWidth * 1.25
   if (!dx) setPivot(el)
   el.style.transform = ''
-  // the further the finger already took it, the shorter the rest of the way
-  const duration = 140 + 160 * (1 - Math.min(1, Math.abs(dx) / Math.abs(toX)))
+  // it starts at the finger's speed (at least a brisk one), so there's no kink when letting go;
+  // the easing's start slope is 1, i.e. it begins at distance / duration
+  const speed = Math.max(1.6, Math.abs(releaseSpeed.get(el) ?? 0))
+  releaseSpeed.delete(el)
+  const duration = Math.min(320, Math.max(120, Math.abs(toX - dx) / speed))
   const anim = el.animate(
     [
       { transform: cardTransform(dx), opacity: 1 },
       { transform: cardTransform(toX), opacity: 0.4 },
     ],
-    { duration, easing: 'cubic-bezier(0.35, 0.4, 0.7, 1)', fill: 'forwards' },
+    { duration, easing: 'cubic-bezier(0.3, 0.3, 0.6, 1)', fill: 'forwards' },
   )
   const done = anim.finished.then(() => {}, () => {})
   flying.set(el, done)
@@ -79,7 +101,7 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
     // not replaced (e.g. the navigation didn't happen): back to normal
     if (el.isConnected) {
       anim.cancel()
-      el.style.transformOrigin = ''
+      resetCard(el)
     }
   }, 700))
   return done
@@ -89,15 +111,16 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
 function springBack(el: HTMLElement) {
   const dx = dragged.get(el) ?? 0
   dragged.delete(el)
+  releaseSpeed.delete(el)
   el.style.transform = ''
   if (!dx) {
-    el.style.transformOrigin = ''
+    resetCard(el)
     return
   }
   el.animate(
     [{ transform: cardTransform(dx) }, { transform: 'none' }],
     { duration: 420, easing: 'cubic-bezier(0.25, 1.5, 0.45, 1)' },
-  ).finished.then(() => (el.style.transformOrigin = ''), () => {})
+  ).finished.then(() => resetCard(el), () => {})
 }
 
 interface SwipeOptions {
@@ -129,6 +152,15 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
   /** last two finger positions, for the speed at release */
   let last = { x: 0, t: 0 }
   let prev = { x: 0, t: 0 }
+  /** finger x when the drag kicked in: the card starts from there, without jumping */
+  let originX = 0
+  /** the card is moved once per frame, not on every touch event */
+  let frame = 0
+  let pending = 0
+  const paint = () => {
+    frame = 0
+    if (el) el.style.transform = cardTransform(pending)
+  }
 
   useEventListener(window, 'touchstart', (e: TouchEvent) => {
     const touch = e.touches[0]
@@ -150,7 +182,8 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
       lock = Math.abs(dx) > 1.5 * Math.abs(dy) && !window.getSelection()?.toString() ? 'h' : 'v'
       if (lock === 'h') {
         el = target()
-        if (!el || isFlying(el) || reduceMotion()) el = null
+        originX = touch.clientX
+        if (!el || isFlying(el) || !cardSwipe()) el = null
         else setPivot(el)
       }
     }
@@ -160,9 +193,11 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
     prev = last
     last = { x: touch.clientX, t: performance.now() }
     if (!el) return
-    const d = can(dx < 0 ? 'left' : 'right') ? dx : dx * RUBBER
+    const drag = touch.clientX - originX
+    const d = can(drag < 0 ? 'left' : 'right') ? drag : drag * RUBBER
     dragged.set(el, d)
-    el.style.transform = cardTransform(d)
+    pending = d
+    frame ||= requestAnimationFrame(paint)
   }, { passive: false })
 
   const end = (e: TouchEvent) => {
@@ -178,6 +213,9 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
     const go = e.type === 'touchend' && (far || flick) && can(dir)
     const card = el
     el = null
+    cancelAnimationFrame(frame)
+    frame = 0
+    if (card) releaseSpeed.set(card, speed)
     if (!go) {
       if (card) springBack(card)
       return
