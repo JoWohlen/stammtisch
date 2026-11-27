@@ -10,24 +10,24 @@ import { DRUNK_EVENT, SERVE_BEER_EVENT } from '@/lib/drunk'
  * 1. The page fades to dark and a bottle fades in in the middle; only the bottle can be clicked.
  * 2. A click pops the cap off, then the bottle fades away
  *    while the page fades back in.
- * 3. Then the page is drunk for 7 s: everything on screen blurs in and out again, and every visible
- *    element (text, headings, buttons, icons, charts, badges, the cards themselves …) wanders about on
- *    its own random path. The page can't be clicked, scrolled, swiped or typed into meanwhile, and
+ * 3. Then the page is drunk for 12 s: every visible element (text, headings, buttons, icons, charts,
+ *    badges, the cards themselves …) wanders about on its own random path and blurs by its own random
+ *    amount, swelling and ebbing a random 3 to 7 times. The page can't be clicked, scrolled, swiped or typed into meanwhile, and
  *    no new beer comes: you have to wait until it's over, then everything is as before.
  *
  * Smooth on weak phones too. As nothing can scroll, only what is on screen takes part; everything off
  * screen stays as it is. Each moving element gets one animation of moving and turning only, worked out
- * up front for all 7 s, which the GPU then plays by itself: nothing is computed per frame. The blur is
- * one screen-sized layer in front (backdrop-filter) whose opacity fades; on phones with little memory it
- * is lighter, and if frames still come too slowly it is dropped and only the movement stays.
+ * up front for all 12 s, which the GPU then plays by itself: nothing is computed per frame. Each also
+ * gets its own random blur strength and rhythm; on phones with little memory the blur is lighter, and
+ * if frames still come too slowly it is dropped and only the movement stays.
  *
  * Shaking works where the browser gives motion data without asking (Android); iPhones only give it
  * after a permission prompt, which we don't show for an easter egg.
  */
 
-const DURATION_MS = 7_000
-const RAMP_UP_MS = 2_000
-const RAMP_DOWN_MS = 2_500
+const DURATION_MS = 12_000
+const RAMP_UP_MS = 2_500
+const RAMP_DOWN_MS = 3_000
 
 /** change in acceleration (m/s²) between two readings that counts as a jolt */
 const JOLT = 22
@@ -42,7 +42,7 @@ const CARDS = '[data-slot="card"]'
 /** at most this many elements move (more than a phone screen shows) */
 const MAX_MOVERS = 150
 /** one keyframe every this many ms; in between they move in a straight line (too short to see) */
-const STEP_MS = 100
+const STEP_MS = 125
 /** below this frame time (ms) the phone keeps up; above it the blur goes */
 const SLOW_FRAME_MS = 28
 
@@ -151,31 +151,56 @@ interface Wave {
   r: number
   f: [number, number, number, number, number, number]
   ph: [number, number, number, number, number, number]
+  /** its own strongest blur (px) and its own rhythm of blurring in and out (0 … 1 at e ms) */
+  blur: number
+  blurAt: (e: number) => number
 }
 
 const drunk = ref(false)
-/** the blurry layer in front of the page */
-const haze = useTemplateRef<HTMLElement>('haze')
 /** clock of the sine waves (never shifted, so the movement stays continuous) */
 let t0 = 0
 /** clock of the fade in / out */
 let start = 0
 let waves: Wave[] = []
 let anims: Animation[] = []
-let hazeAnim: Animation | null = null
+/** the blur animations, kept apart so a slow phone can drop them */
+let blurAnims: Animation[] = []
 let timer: ReturnType<typeof setTimeout> | undefined
 let fpsRaf = 0
 
-/** 0 → 1 → 0 in a straight line over the 7 s */
+/** 0 → 1 → 0 in a straight line over the 12 s */
 const levelAt = (e: number) => e < 0
   ? 0
   : e < RAMP_UP_MS ? e / RAMP_UP_MS : e > DURATION_MS - RAMP_DOWN_MS ? Math.max(0, (DURATION_MS - e) / RAMP_DOWN_MS) : 1
-/** the movement eases in and out; the blur even more softly, so it creeps in and out */
+/** the movement eases in and out */
 const smooth = (l: number) => l * l * (3 - 2 * l)
-const smoother = (l: number) => l ** 3 * (l * (6 * l - 15) + 10)
 
 const rnd = (a: number, z: number) => a + Math.random() * (z - a)
 const sign = () => (Math.random() < 0.5 ? -1 : 1)
+
+/** between its waves the blur doesn't clear up any more than this (share of full blur) */
+const BLUR_FLOOR = 0.45
+
+/**
+ * An element's blur swells and ebbs a random number of times (3 to 7) over the 12 s, each time a bit
+ * differently strong, at an uneven pace. Between the waves it stays fairly blurry (BLUR_FLOOR);
+ * only at the very start and end is it sharp. Returns 0 … 1 (share of its strongest blur) at e ms.
+ */
+function randomBlur(): (e: number) => number {
+  const times = 3 + Math.floor(Math.random() * 5)
+  const strength = Array.from({ length: times }, () => rnd(0.8, 1))
+  // uneven pace: time is bent a little (still always moving forward), so the waves differ in length
+  const a = rnd(-0.6, 0.6)
+  const b = rnd(-0.3, 0.3)
+  const bend = (u: number) => u + (a * Math.sin(2 * Math.PI * u)) / (2 * Math.PI) + (b * Math.sin(4 * Math.PI * u)) / (4 * Math.PI)
+  return (e) => {
+    const phase = times * bend(Math.min(1, Math.max(0, e / DURATION_MS)))
+    const i = Math.min(times - 1, Math.floor(phase))
+    // floor → peak → floor once per wave, faded in at the start and out at the end like the movement
+    const wave = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase)
+    return smooth(levelAt(e)) * (BLUR_FLOOR + (strength[i]! - BLUR_FLOOR) * wave)
+  }
+}
 
 /** where an element is at t seconds, k = how drunk (0 … 1) */
 const waveAt = (w: Wave, t: number, k: number) => {
@@ -183,13 +208,16 @@ const waveAt = (w: Wave, t: number, k: number) => {
   return `translate(${(k * w.x * mix(0)).toFixed(2)}px, ${(k * w.y * mix(2)).toFixed(2)}px) rotate(${(k * w.r * mix(4)).toFixed(3)}deg)`
 }
 
+/** phones with little memory (Chrome reports it) get a lighter blur right away */
+const weakDevice = () => ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4
+
 const onScreen = (el: Element) => {
   const r = el.getBoundingClientRect()
   return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth
 }
 
-/** a random path; small things wander further than big ones */
-function randomWave(el: Element, size: number): Wave {
+/** a random path and a random blur; small things wander further than big ones */
+function randomWave(el: Element, size: number, blur: [number, number]): Wave {
   const f = () => rnd(0.5, 2.2)
   const ph = () => rnd(0, 6.28)
   return {
@@ -199,6 +227,8 @@ function randomWave(el: Element, size: number): Wave {
     r: sign() * rnd(2, 7) * size,
     f: [f(), f(), f(), f(), f(), f()],
     ph: [ph(), ph(), ph(), ph(), ph(), ph()],
+    blur: rnd(...blur) * (weakDevice() ? 0.6 : 1),
+    blurAt: randomBlur(),
   }
 }
 
@@ -224,11 +254,9 @@ function pickMovers(): Wave[] {
     return true
   })
   const cards = [...document.querySelectorAll(`main ${CARDS}`)].filter(onScreen)
-  return [...cards.map(el => randomWave(el, 0.5)), ...outermost.map(el => randomWave(el, 1))].slice(0, MAX_MOVERS)
+  // a card's blur also blurs what's in it, so cards get only a little (their content adds its own)
+  return [...cards.map(el => randomWave(el, 0.5, [0.3, 1.2])), ...outermost.map(el => randomWave(el, 1, [0.6, 4]))].slice(0, MAX_MOVERS)
 }
-
-/** phones with little memory (Chrome reports it) get a lighter blur right away */
-const weakDevice = () => ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4
 
 /** keyframes from now to the end: `at(t, e)` with t = wave clock (s), e = ms since the fade-in began */
 function frames<K>(now: number, at: (t: number, e: number) => K) {
@@ -241,22 +269,19 @@ function frames<K>(now: number, at: (t: number, e: number) => K) {
   return { list, left }
 }
 
-/** plans all 7 s up front: one animation per element and one for the blur */
+/**
+ * Plans all 12 s up front: per element one animation for the movement and one for its blur
+ * (separate, so the movement stays on the GPU even where a browser can't do the blur there).
+ */
 function plan(now: number) {
   const opts = (left: number): KeyframeAnimationOptions => ({ duration: left, easing: 'linear' })
-  if (!reduceMotion()) {
-    for (const w of waves) {
+  for (const w of waves) {
+    if (!reduceMotion()) {
       const { list, left } = frames(now, (t, e) => ({ transform: waveAt(w, t, smooth(levelAt(e))) }))
       anims.push(w.el.animate(list, opts(left)))
     }
-  }
-  if (haze.value) {
-    if (weakDevice()) {
-      haze.value.style.setProperty('backdrop-filter', 'blur(1.5px)')
-      haze.value.style.setProperty('-webkit-backdrop-filter', 'blur(1.5px)')
-    }
-    const { list, left } = frames(now, (_t, e) => ({ opacity: smoother(levelAt(e)).toFixed(3) }))
-    hazeAnim = haze.value.animate(list, opts(left))
+    const { list, left } = frames(now, (_t, e) => ({ filter: `blur(${(w.blur * w.blurAt(e)).toFixed(2)}px)` }))
+    blurAnims.push(w.el.animate(list, opts(left)))
   }
   clearTimeout(timer)
   timer = setTimeout(sober, DURATION_MS - (now - start))
@@ -279,17 +304,19 @@ function watchSpeed() {
       fpsRaf = requestAnimationFrame(tick)
       return
     }
-    if (n && sum / n > SLOW_FRAME_MS) dropHaze()
+    if (n && sum / n > SLOW_FRAME_MS) dropBlur()
   }
   fpsRaf = requestAnimationFrame(tick)
 }
 
-function dropHaze() {
-  const el = haze.value
-  if (!el || !hazeAnim) return
-  const from = getComputedStyle(el).opacity
-  hazeAnim.cancel()
-  hazeAnim = el.animate([{ opacity: from }, { opacity: 0 }], { duration: 400, easing: 'ease-out', fill: 'forwards' })
+/** too slow for the blur: every element sharpens up softly, the movement goes on */
+function dropBlur() {
+  const from = waves.map(w => getComputedStyle(w.el).filter)
+  for (const a of blurAnims) a.cancel()
+  blurAnims = waves.map((w, i) => w.el.animate(
+    [{ filter: from[i] === 'none' ? 'blur(0px)' : from[i]! }, { filter: 'blur(0px)' }],
+    { duration: 400, easing: 'ease-out', fill: 'forwards' },
+  ))
 }
 
 async function drink() {
@@ -308,8 +335,8 @@ function sober() {
   cancelAnimationFrame(fpsRaf)
   for (const a of anims) a.cancel()
   anims = []
-  hazeAnim?.cancel()
-  hazeAnim = null
+  for (const a of blurAnims) a.cancel()
+  blurAnims = []
   waves = []
   drunk.value = false
   root().classList.remove('drunk')
@@ -360,13 +387,6 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <!-- the blur: one screen-sized layer in front of the page (over the bar too), only its opacity changes -->
-    <div
-      v-if="drunk"
-      ref="haze"
-      class="pointer-events-none fixed inset-0 z-[55] opacity-0 backdrop-blur-[3px]"
-      aria-hidden="true"
-    />
     <div
       v-if="state !== 'idle'"
       class="fixed inset-0 z-[60] grid place-items-center"
