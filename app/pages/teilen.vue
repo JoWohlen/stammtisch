@@ -86,7 +86,7 @@ const onClick = async () => {
           >
         </div>
 
-        <p class="min-h-5 text-center text-sm break-all text-muted-foreground">
+        <p class="min-h-5 text-center text-sm break-all text-muted-foreground select-text">
           {{ url }}
         </p>
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import { formatDate } from '@/lib/format'
+import { isKategorie, KATEGORIE_KEYS as keys, KATEGORIEN, type Kategorie } from '@/lib/analyse-kategorien'
 
 useHead({ title: 'Analyse · Stammtisch-Tracker' })
 
@@ -8,17 +10,11 @@ const zeitraum = s.ersterBesuch && s.letzterBesuch
   ? `${formatDate(s.ersterBesuch)} – ${formatDate(s.letzterBesuch)}`
   : undefined
 
-type Kategorie = 'bewertungen' | 'termine' | 'bier' | 'orte'
-const KATEGORIEN: { key: Kategorie, label: string, short: string, hint: string }[] = [
-  { key: 'bewertungen', label: 'Bewertungen', short: 'Noten', hint: 'Wie wir bewerten, wer ähnlich tickt und wie sich das verändert' },
-  { key: 'termine', label: 'Termine', short: 'Termine', hint: 'Wer wann da war, Jahreszeiten und wie regelmäßig wir uns treffen' },
-  { key: 'bier', label: 'Bier', short: 'Bier', hint: 'Was wir trinken und was es kostet' },
-  { key: 'orte', label: 'Orte', short: 'Orte', hint: 'Wo in Köln wir schon waren' },
-]
-const keys = KATEGORIEN.map(k => k.key)
-
 const kategorie = ref<Kategorie>('bewertungen')
 const aktiv = computed(() => KATEGORIEN.find(k => k.key === kategorie.value)!)
+/** the categories left and right of the current one, for the swipe hint */
+const prevKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) - 1] ?? null)
+const nextKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) + 1] ?? null)
 /** slide direction of the last switch, for the transition */
 const dir = ref<'next' | 'prev'>('next')
 /** the current category's content, nudged when swiping past the first / last one */
@@ -28,17 +24,46 @@ const content = ref<HTMLElement | null>(null)
 const route = useRoute()
 const router = useRouter()
 onMounted(() => {
-  const q = String(route.query.kategorie ?? '')
-  if (keys.includes(q as Kategorie)) kategorie.value = q as Kategorie
+  const q = route.query.kategorie
+  if (isKategorie(q)) kategorie.value = q
+  peek()
 })
 
-function select(k: Kategorie) {
-  if (k === kategorie.value) return
+/**
+ * Once per visit on a touch screen: the content slides a bit to the side and springs back,
+ * as if pulled by a finger, so it's clear the categories can be swiped.
+ */
+function peek() {
+  if (!matchMedia('(pointer: coarse)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (sessionStorage.getItem('analyse-peek')) return
+  sessionStorage.setItem('analyse-peek', '1')
+  const dir = nextKat.value ? -1 : 1
+  setTimeout(() => content.value?.animate([
+    { transform: 'translateX(0)' },
+    { transform: `translateX(${dir * 56}px)`, offset: 0.35, easing: 'ease-in-out' },
+    { transform: `translateX(${dir * 44}px)`, offset: 0.55, easing: 'ease-in-out' },
+    { transform: 'translateX(0)' },
+  ], { duration: 1100, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' }), 700)
+}
+
+/** switches the visible category, sliding in the right direction */
+function show(k: Kategorie) {
+  if (k === kategorie.value) return false
   dir.value = keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'next' : 'prev'
   kategorie.value = k
-  router.replace({ query: { ...route.query, kategorie: k === keys[0] ? undefined : k } })
   window.scrollTo({ top: 0, behavior: 'smooth' })
+  return true
 }
+
+function select(k: Kategorie) {
+  if (show(k)) router.replace({ query: { ...route.query, kategorie: k === keys[0] ? undefined : k } })
+}
+
+// links from the app menu change only the query, the page stays mounted
+watch(() => route.query.kategorie, (q) => {
+  if (!route.path.startsWith('/analyse')) return // leaving the page
+  show(isKategorie(q) ? q : keys[0]!)
+})
 
 // swipe left → next category, right → previous (charts that scroll or pan themselves are left alone)
 useHorizontalSwipe((d) => {
@@ -87,7 +112,50 @@ useHorizontalSwipe((d) => {
         </TabsList>
       </Tabs>
       <p class="mt-1 text-sm text-muted-foreground">
-        {{ aktiv.hint }}<span class="sm:hidden"> · Wischen für die nächste Kategorie</span>
+        {{ aktiv.hint }}
+      </p>
+      <!-- phones: it can be swiped - neighbours with arrows (also tappable) and a dot per category -->
+      <div class="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm sm:hidden">
+        <button
+          v-if="prevKat"
+          type="button"
+          class="flex min-w-0 items-center gap-0.5 justify-self-start text-muted-foreground"
+          @click="select(prevKat.key)"
+        >
+          <ChevronLeft
+            class="size-4 shrink-0 animate-[swipe-hint-left_1.6s_ease-in-out_infinite]"
+            aria-hidden="true"
+          />
+          <span class="truncate">{{ prevKat.short }}</span>
+        </button>
+        <span v-else />
+        <span
+          class="flex items-center gap-1.5"
+          aria-hidden="true"
+        >
+          <span
+            v-for="k in KATEGORIEN"
+            :key="k.key"
+            class="h-1.5 rounded-full transition-all duration-200"
+            :class="k.key === kategorie ? 'w-4 bg-foreground' : 'w-1.5 bg-muted-foreground/40'"
+          />
+        </span>
+        <button
+          v-if="nextKat"
+          type="button"
+          class="flex min-w-0 items-center gap-0.5 justify-self-end text-muted-foreground"
+          @click="select(nextKat.key)"
+        >
+          <span class="truncate">{{ nextKat.short }}</span>
+          <ChevronRight
+            class="size-4 shrink-0 animate-[swipe-hint-right_1.6s_ease-in-out_infinite]"
+            aria-hidden="true"
+          />
+        </button>
+        <span v-else />
+      </div>
+      <p class="sr-only">
+        Wischen wechselt die Kategorie.
       </p>
     </template>
 
@@ -153,6 +221,23 @@ useHorizontalSwipe((d) => {
   .slide-prev-enter-active,
   .slide-prev-leave-active {
     transition: none;
+  }
+}
+</style>
+
+<style>
+/* the arrows of the swipe hint nudge outwards now and then (global: used by Tailwind animate-[…] classes) */
+@keyframes swipe-hint-left {
+  0%, 60%, 100% { transform: translateX(0); }
+  75% { transform: translateX(-3px); }
+}
+@keyframes swipe-hint-right {
+  0%, 60%, 100% { transform: translateX(0); }
+  75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="swipe-hint-"] {
+    animation: none !important;
   }
 }
 </style>

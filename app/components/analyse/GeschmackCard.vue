@@ -117,7 +117,7 @@ function standing(r: number): string {
       <!-- fixed columns that fit a phone; numbers in the cells from sm on, on phones tap a cell -->
       <div>
         <table
-          class="table-fixed border-separate tabular-nums w-full border-spacing-px text-[10px] sm:border-spacing-0.5 sm:text-xs"
+          class="table-fixed border-separate tabular-nums w-full select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] border-spacing-px text-[10px] sm:border-spacing-0.5 sm:text-xs"
           :aria-label="`Ähnlichkeit der ${scoreKeyLabel(key)}-Bewertungen zwischen allen Mitgliedern`"
           @pointerleave="active = null"
         >
@@ -159,17 +159,14 @@ function standing(r: number): string {
                 scope="row"
                 class="text-left font-medium pr-1 sm:pr-2"
               >
-                <NuxtLink
-                  :to="`/teilnehmer/${a.slug}`"
-                  class="flex min-w-0 items-center gap-1 hover:underline sm:gap-1.5"
-                >
+                <div class="flex min-w-0 items-center gap-1 sm:gap-1.5">
                   <span
                     class="size-2 shrink-0 rounded-full"
                     :style="{ backgroundColor: memberColor(a.name) }"
                     aria-hidden="true"
                   />
                   <span class="truncate">{{ a.name }}</span>
-                </NuxtLink>
+                </div>
               </th>
               <td
                 v-for="(c, j) in matrix[i]"

@@ -55,10 +55,7 @@ const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
           class="grid grid-cols-[5.5rem_1fr_4rem] items-center gap-3 sm:grid-cols-[8rem_1fr_5rem]"
           :class="r.geplantN < MIN_N ? 'opacity-50' : ''"
         >
-          <NuxtLink
-            :to="`/teilnehmer/${r.slug}`"
-            class="flex flex-col truncate text-sm font-medium hover:underline"
-          >
+          <div class="flex flex-col truncate text-sm font-medium">
             {{ r.name }}
             <span
               class="flex flex-col text-xs leading-tight font-normal text-muted-foreground"
@@ -67,7 +64,7 @@ const abende = (n: number) => `${n} ${n === 1 ? 'Abend' : 'Abende'}`
               <span>{{ r.geplantTotal }} geplant</span>
               <span v-if="r.geplantN < r.geplantTotal">{{ r.geplantN }} bewertet</span>
             </span>
-          </NuxtLink>
+          </div>
 
           <div
             class="relative h-6"

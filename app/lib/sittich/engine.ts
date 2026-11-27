@@ -1,6 +1,6 @@
 /**
  * Halsbandsittich easter egg: a parakeet (sometimes a pair) flies onto the menu bar's bottom line,
- * sits there, blinks, bobs, walks, turns and grooms. A click or scrolling scares it off; on some
+ * sits there, blinks, bobs, walks, turns and grooms. A click scares it off; on some
  * pages a click makes it explode instead. Plain DOM + canvas, no framework, so it can be torn down
  * completely by `destroy()`.
  */
@@ -14,7 +14,10 @@ import type { Palette } from './sprites'
 const PAIR_GAP = 21
 /** the menu bar's height: its bottom border is the "wire" */
 const LINE_Y = 56
-const SCROLL_SCARE_PX = 60
+
+/** the "HAU AB!" stays this long; the bird takes off once it has popped up (pop + settle in its keyframes) */
+const SHOUT_MS = 1800
+const SHOUT_POP_MS = SHOUT_MS * 0.26
 
 type Frame = 'perch' | 'up' | 'mid' | 'down' | 'lup' | 'lspread'
 
@@ -43,6 +46,8 @@ interface Bird {
 export interface SittichOptions {
   /** a click here sets off the explosion instead of scaring the bird away */
   isNukePage: () => boolean
+  /** the bar holding the logo and the menu button (default: the perch's parent) */
+  bar?: () => HTMLElement | null | undefined
 }
 
 export interface SittichScene {
@@ -50,6 +55,8 @@ export interface SittichScene {
   land: (pair: boolean) => void
   /** true while a bird is on screen (sitting, flying or exploding) */
   busy: () => boolean
+  /** every bird takes off as if startled (also one still flying in; a charging one goes off anyway) */
+  scareAll: () => void
   destroy: () => void
 }
 
@@ -64,7 +71,6 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
   let male: Bird | undefined
   let female: Bird | undefined
-  let landedScroll = 0
   const effects = new Set<() => void>() // running explosions, so destroy() can stop them
 
   // every timer goes through here, so a removed bird stops doing things
@@ -75,8 +81,9 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
   /** free stretch of the line between the logo and the menu button */
   const bounds = (sc: number) => {
     const box = perch.getBoundingClientRect()
-    const logo = perch.parentElement?.querySelector('a')?.getBoundingClientRect()
-    const button = perch.parentElement?.querySelector('button')?.getBoundingClientRect()
+    const bar = opts.bar?.() ?? perch.parentElement
+    const logo = bar?.querySelector('a')?.getBoundingClientRect()
+    const button = bar?.querySelector('button')?.getBoundingClientRect()
     const min = (logo ? logo.right - box.left : 0) + 8
     const max = (button ? button.left - box.left : box.width) - SPRITE_W * sc - 8
     return max > min ? { min, max } : { min: 8, max: Math.max(8, box.width - SPRITE_W * sc - 8) }
@@ -118,7 +125,13 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
         el.style.transform = `translate(${x}px, ${y}px)`
       },
     }
-    b.q('.hit').addEventListener('click', () => (opts.isNukePage() ? nuke(b) : scare(b)))
+    b.q('.hit').addEventListener('click', () => {
+      if (opts.isNukePage()) return nuke(b)
+      if (b.leaving) return // already shouted at
+      // first the shout pops up, then the bird takes off while it is still there
+      shout(b)
+      scare(b, SHOUT_POP_MS)
+    })
     return b
   }
 
@@ -421,17 +434,64 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
     }, delay)
   }
 
-  /** a startled bird takes its partner with it */
-  function scare(b: Bird) {
-    flyAway(b)
-    if (b.partner) flyAway(b.partner, 150 + Math.random() * 150)
+  /**
+   * comic "HAU AB!" shouted at the clicked bird: white outlined letters on a black starburst.
+   * Shown below the bar and off to the side towards the middle of the screen, so a finger on the
+   * bird doesn't cover it. Pops up and fades out while the bird flies off.
+   */
+  function shout(b: Bird) {
+    const W = 140, H = 100
+    const cx = W / 2, cy = H / 2
+    /** gap between the bird and the burst, about a fingertip */
+    const GAP = 28
+    const box = perch.getBoundingClientRect()
+    const bird = b.x + (TOE_CX * b.sc)
+    const towardsLeft = box.left + bird > window.innerWidth / 2
+    const want = towardsLeft ? bird - GAP - W : bird + GAP
+    const left = Math.min(Math.max(want, 4 - box.left), window.innerWidth - box.left - W - 4)
+    // irregular starburst: long and short spikes, fixed so it always looks the same
+    const R = [1, 0.78, 0.95, 0.72, 1.08, 0.8, 0.9, 0.7, 1.02, 0.82, 0.93, 0.74, 1.05, 0.77]
+    const n = R.length
+    const burst = R.flatMap((r, i) => {
+      const a = (i / n) * 2 * Math.PI - Math.PI / 2
+      const m = a + Math.PI / n
+      return [
+        `${cx + Math.cos(a) * 62 * r},${cy + Math.sin(a) * 47 * r}`,
+        `${cx + Math.cos(m) * 40},${cy + Math.sin(m) * 30}`,
+      ]
+    }).join(' ')
+    const el = document.createElement('div')
+    el.style.cssText = `position:absolute;left:${left}px;top:${LINE_Y + 6}px;width:${W}px;height:${H}px;pointer-events:none;z-index:2;transform-origin:50% 50%`
+    el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" overflow="visible" role="img" aria-label="Hau ab!">
+      <polygon points="${burst}" fill="#111" stroke="#fff" stroke-width="4" stroke-linejoin="round" transform="rotate(-6 ${cx} ${cy})"/>
+      <text x="${cx}" y="${cy + 10}" text-anchor="middle" transform="rotate(-12 ${cx} ${cy})"
+        font-family="Impact,'Arial Black',ui-sans-serif,sans-serif" font-weight="900" font-size="29" letter-spacing="0.5"
+        fill="#fff" stroke="#111" stroke-width="5" stroke-linejoin="round" paint-order="stroke">HAU AB<tspan dx="2" font-size="33">!</tspan></text>
+    </svg>`
+    perch.appendChild(el)
+    const stop = () => {
+      el.remove()
+      effects.delete(stop)
+    }
+    effects.add(stop)
+    const frames = reduceMotion
+      ? [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
+      : [
+          { transform: 'scale(0.2)', opacity: 0 },
+          { transform: 'scale(1.18)', opacity: 1, offset: 0.12 },
+          { transform: 'scale(0.95)', offset: 0.2 },
+          { transform: 'scale(1)', offset: 0.26 },
+          { transform: 'scale(1) translateY(0)', opacity: 1, offset: 0.75 },
+          { transform: 'scale(1) translateY(-6px)', opacity: 0 },
+        ]
+    el.animate(frames, { duration: SHOUT_MS, easing: 'ease-out' }).finished.then(stop, stop)
   }
 
-  const onScroll = () => {
-    if (Math.abs(window.scrollY - landedScroll) < SCROLL_SCARE_PX) return
-    for (const b of [male, female]) if (b?.perched && !b.dead) scare(b)
+  /** a startled bird takes its partner with it */
+  function scare(b: Bird, delay = 0) {
+    flyAway(b, delay)
+    if (b.partner) flyAway(b.partner, delay + 150 + Math.random() * 150)
   }
-  window.addEventListener('scroll', onScroll, { passive: true })
 
   // ---------- the nuclear option ----------
   /** a couple goes up together: both charge up at the same moment and each gets its own mushroom */
@@ -697,9 +757,8 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
     vanish(male)
     vanish(female)
     female = undefined
-    const sc = matchMedia('(min-width: 640px)').matches ? 2 : 1.5 // smaller on phones
+    const sc = matchMedia('(min-width: 640px)').matches ? 1.5 : 1.125 // smaller on phones
     const m = male = makeBird(sc, PAL, 1)
-    landedScroll = window.scrollY
     const tx = Math.round(rnd(m.minX, m.maxX))
     const ty = LINE_Y - WIRE_ROW * sc - Math.floor(sc / 2) // toe row lands on the 1px border
     const afterLanding = () => {
@@ -717,8 +776,11 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
   return {
     land,
     busy: () => [male, female].some(b => b?.el.isConnected) || effects.size > 0,
+    scareAll() {
+      if (male && !male.dead) flyAway(male)
+      if (female && !female.dead) flyAway(female, 150 + Math.random() * 150)
+    },
     destroy() {
-      window.removeEventListener('scroll', onScroll)
       vanish(male)
       vanish(female)
       for (const stop of [...effects]) stop()

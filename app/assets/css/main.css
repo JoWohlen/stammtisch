@@ -125,7 +125,12 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* no text selection, except form fields and elements opted in via select-text */
+    @apply bg-background text-foreground select-none;
+  }
+  input,
+  textarea {
+    @apply select-text;
   }
 }
 
@@ -146,6 +151,20 @@
   transform: translateX(2.5rem);
   opacity: 0;
 }
+/* opening a member / Brauhaus page: the old page fades, the new one grows into place */
+.open-detail-leave-active {
+  transition: opacity 90ms ease-in;
+}
+.open-detail-enter-active {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease-out;
+}
+.open-detail-leave-to {
+  opacity: 0;
+}
+.open-detail-enter-from {
+  transform: scale(0.96) translateY(0.5rem);
+  opacity: 0;
+}
 @media (prefers-reduced-motion: reduce) {
   .slide-left-enter-active,
   .slide-left-leave-active,
@@ -156,7 +175,44 @@
   .slide-left-leave-to,
   .slide-right-enter-from,
   .slide-left-enter-from,
-  .slide-right-leave-to {
+  .slide-right-leave-to,
+  .open-detail-enter-from {
+    transform: none;
+  }
+}
+
+/* drunk easter egg (components/DrunkEasterEgg.vue). The component sets
+   --drunk (0 → 1 → 0 over 10 s), --drunk-blur (the same, eased) and --t (seconds since it started).
+   Everything moves on sine waves of --t, so the motion is smooth with no turning points;
+   each element gets its own speed and phase (--f, --ph), so things drift independently. */
+html.drunk main {
+  transform:
+    translate(calc(var(--drunk, 0) * sin(var(--t, 0) * 0.9rad) * 20px), calc(var(--drunk, 0) * sin(var(--t, 0) * 1.3rad + 1rad) * 8px))
+    rotate(calc(var(--drunk, 0) * sin(var(--t, 0) * 0.7rad + 0.5rad) * 2deg));
+  /* blur + a ghost image that drifts in and out (double vision) */
+  filter: blur(calc(var(--drunk-blur, 0) * 3px))
+    drop-shadow(calc(var(--drunk-blur, 0) * (8px + sin(var(--t, 0) * 1.1rad) * 6px)) calc(var(--drunk-blur, 0) * sin(var(--t, 0) * 0.8rad) * 4px) 0 rgb(0 0 0 / calc(var(--drunk-blur, 0) * 0.28)));
+}
+html.drunk [data-app-bar] {
+  filter: blur(calc(var(--drunk-blur, 0) * 2.4px));
+}
+/* every element moves on its own, on top of its parent's movement; the component gives each one a
+   random speed, phase and direction (--f, --ph, --ax, --ay, --ar), nth-child is the fallback for new ones */
+html.drunk main :is([data-slot="card"], h1, h2, h3, p, li, button, svg, img, table, [data-slot="badge"]),
+html.drunk [data-app-bar] > div > * {
+  transform:
+    translate(calc(var(--drunk, 0) * var(--ax, 1) * sin(var(--t, 0) * var(--f, 1.1) * 1rad + var(--ph, 0rad)) * 14px), calc(var(--drunk, 0) * var(--ay, 1) * cos(var(--t, 0) * var(--f, 1.1) * 1.3rad + var(--ph, 0rad)) * 10px))
+    rotate(calc(var(--drunk, 0) * var(--ar, 1) * sin(var(--t, 0) * var(--f, 1.1) * 0.8rad + var(--ph, 0rad)) * 3.5deg));
+}
+html.drunk :nth-child(2n) { --f: 0.8; --ph: 1.7rad; }
+html.drunk :nth-child(3n) { --f: 1.35; --ph: 3.1rad; }
+html.drunk :nth-child(5n) { --f: 0.95; --ph: 4.4rad; }
+html.drunk :nth-child(7n) { --f: 1.2; --ph: 5.6rad; }
+@media (prefers-reduced-motion: reduce) {
+  /* only the blur, nothing moves */
+  html.drunk main,
+  html.drunk main *,
+  html.drunk [data-app-bar] > div > * {
     transform: none;
   }
 }

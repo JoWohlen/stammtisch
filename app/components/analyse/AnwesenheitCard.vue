@@ -84,16 +84,15 @@ const full = ref(false)
           </TabsList>
         </Tabs>
         <!-- names and counts stay put, only the grid scrolls on narrow screens -->
-        <div class="flex items-start gap-2">
+        <div class="flex items-start gap-2 select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]">
           <div class="flex w-[4.5rem] shrink-0 flex-col gap-px sm:w-[7rem] sm:gap-0.5">
-            <NuxtLink
+            <span
               v-for="r in rows"
               :key="r.slug"
-              :to="`/teilnehmer/${r.slug}`"
-              class="flex h-3 items-center truncate text-xs leading-none font-medium hover:underline sm:h-3.5"
+              class="flex h-3 items-center truncate text-xs leading-none font-medium sm:h-3.5"
             >
               {{ r.name }}
-            </NuxtLink>
+            </span>
           </div>
 
           <div

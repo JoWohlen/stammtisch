@@ -1,15 +1,35 @@
 <script setup lang="ts">
-import { Award, Beer, ChartLine, ChevronDown, History, House, Menu, Moon, QrCode, ScrollText, Search, Settings, X } from '@lucide/vue'
-import { onClickOutside, onKeyStroke, useColorMode } from '@vueuse/core'
+import type { Component } from 'vue'
+import { Award, Beer, CalendarDays, ChartLine, ChevronDown, History, House, MapPin, Menu, Moon, QrCode, ScrollText, Search, Settings, Star, Users, X } from '@lucide/vue'
+import { onClickOutside, onKeyStroke, useColorMode, useEventListener } from '@vueuse/core'
+import { isKategorie, KATEGORIE_KEYS, KATEGORIEN, kategorieRoute, type Kategorie } from '@/lib/analyse-kategorien'
+import { ICON_COLOR } from '@/lib/icon-colors'
+import { byDate } from '@/lib/stats'
+
+const { participants, visits } = useStammtisch()
+/** members in the usual order, Stammtische oldest first */
+const memberPaths = participants.map(p => `/teilnehmer/${p.slug}`)
+const visitPaths = byDate(visits).map(v => `/brauhaus/${v.slug}?besuch=${v.nr}`)
+const rememberOrder = useBrowseList()
 
 const pages = [
   { to: '/', label: 'Übersicht', icon: House, color: 'text-sky-500' },
-  { to: '/analyse', label: 'Analyse', icon: ChartLine, color: 'text-indigo-500 dark:text-indigo-400' },
+  // straight to the first member / the first Stammtisch; swiping there goes on in this order
+  { to: memberPaths[0]!, label: 'Mitglieder', icon: Users, color: ICON_COLOR.personen, section: '/teilnehmer/', browse: memberPaths },
+  { to: visitPaths[0]!, label: 'Stammtische', icon: Beer, color: ICON_COLOR.bier, section: '/brauhaus/', browse: visitPaths },
+  { to: '/analyse', label: 'Analyse', icon: ChartLine, color: 'text-indigo-500 dark:text-indigo-400', sub: true },
   { to: '/satzung', label: 'Satzung', icon: ScrollText, color: 'text-orange-500' },
   { to: '/awards', label: 'Awards', icon: Award, color: 'text-yellow-500' },
   { to: '/timeline', label: 'Timeline', icon: History, color: 'text-teal-500' },
   { to: '/suche', label: 'Suche', icon: Search, color: 'text-blue-500' },
 ]
+/** icons of the Analyse sections, in the colours used for these things across the app */
+const KATEGORIE_ICON: Record<Kategorie, { icon: Component, color: string }> = {
+  bewertungen: { icon: Star, color: ICON_COLOR.bewertung },
+  termine: { icon: CalendarDays, color: ICON_COLOR.termine },
+  bier: { icon: Beer, color: ICON_COLOR.bier },
+  orte: { icon: MapPin, color: ICON_COLOR.orte },
+}
 /** below the divider, above the settings */
 const extras = [
   { to: '/teilen', label: 'Teilen', icon: QrCode, color: 'text-foreground dark:text-white' },
@@ -17,20 +37,54 @@ const extras = [
 
 const open = ref(false)
 const settingsOpen = ref(false)
+/** the Analyse entry folds out its sections */
+const analyseOpen = ref(false)
 const root = useTemplateRef<HTMLElement>('root')
+const bar = useTemplateRef<HTMLElement>('bar')
+
+/** the bar slides away while scrolling down and comes back on scrolling up (or near the top) */
+const BAR_H = 56
+const SCROLL_STEP = 8
+const hidden = ref(false)
+let lastY = 0
+useEventListener(import.meta.client ? window : null, 'scroll', () => {
+  const y = window.scrollY
+  if (open.value || y < BAR_H) {
+    hidden.value = false
+    lastY = y
+    return
+  }
+  if (Math.abs(y - lastY) < SCROLL_STEP) return
+  hidden.value = y > lastY
+  lastY = y
+}, { passive: true })
+// sticky things below the bar (e.g. the Timeline's year) move up with it
+watch(hidden, h => document.documentElement.style.setProperty('--app-header-h', h ? '0px' : `${BAR_H}px`))
 
 const close = () => {
   open.value = false
   settingsOpen.value = false
 }
-const toggle = () => (open.value ? close() : (open.value = true))
+const toggle = () => {
+  if (open.value) return close()
+  // on the Analyse page its sections are shown right away
+  analyseOpen.value = isActive('/analyse')
+  open.value = true
+}
 
 onClickOutside(root, close)
 onKeyStroke('Escape', close)
 
 const route = useRoute()
-watch(() => route.path, close)
-const isActive = (to: string) => (to === '/' ? route.path === '/' : route.path.startsWith(to))
+// fullPath: the Analyse sections only change the query
+watch(() => route.fullPath, () => {
+  close()
+  hidden.value = false
+})
+/** `section`: the entry stands for all pages under that path (every member, every Stammtisch) */
+const isActive = (to: string, section?: string) =>
+  to === '/' ? route.path === '/' : route.path.startsWith(section ?? to)
+const aktiveKategorie = computed(() => (isKategorie(route.query.kategorie) ? route.query.kategorie : KATEGORIE_KEYS[0]))
 
 // 'auto' follows the OS until the switch is flipped once
 const mode = useColorMode({ storageKey: 'stammtisch-theme' })
@@ -54,11 +108,32 @@ const toggleNightMode = () => {
       aria-hidden="true"
     />
   </Teleport>
+  <!-- the birds' own layer (above the bar and its blur) slides with the bar, so sitting birds
+       disappear with it and come back with it; h-14 + the bar's 1px border = the bar's height -->
+  <div
+    class="pointer-events-none fixed inset-x-0 top-0 z-[51] h-14 transition-transform duration-200 ease-[cubic-bezier(0.5,1,0.89,1)]"
+    :class="hidden ? '-translate-y-[calc(100%+1px)]' : ''"
+    aria-hidden="true"
+  >
+    <div class="relative mx-auto h-full max-w-6xl">
+      <SittichEasterEgg
+        :bar="bar"
+        :bar-hidden="hidden"
+        :menu-open="open"
+      />
+    </div>
+  </div>
   <header
     ref="root"
-    class="sticky top-0 z-50 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70"
+    data-app-bar
+    class="sticky top-0 z-50 border-b bg-background/85 backdrop-blur transition-transform duration-200 ease-[cubic-bezier(0.5,1,0.89,1)] supports-[backdrop-filter]:bg-background/70"
+    :class="hidden ? '-translate-y-full' : ''"
+    @focusin="hidden = false"
   >
-    <div class="relative mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <div
+      ref="bar"
+      class="relative mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6"
+    >
       <NuxtLink
         to="/"
         class="flex items-center gap-2 font-semibold tracking-tight"
@@ -95,9 +170,6 @@ const toggleNightMode = () => {
         Menü
       </button>
 
-      <!-- easter egg: a Halsbandsittich now and then sits on the bar's bottom line -->
-      <SittichEasterEgg />
-
       <!-- fold-out: grid-rows 0fr → 1fr animates to the content's natural height -->
       <div
         id="app-menu-panel"
@@ -118,22 +190,87 @@ const toggleNightMode = () => {
                 v-if="gi > 0"
                 class="mx-2 my-1 h-px bg-border"
               />
-              <NuxtLink
+              <template
                 v-for="p in group"
                 :key="p.to"
-                :to="p.to"
-                class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-                :class="isActive(p.to) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
-                :aria-current="isActive(p.to) ? 'page' : undefined"
               >
-                <component
-                  :is="p.icon"
-                  class="size-4"
-                  :class="p.color"
-                  aria-hidden="true"
-                />
-                {{ p.label }}
-              </NuxtLink>
+                <!-- entry with sections: the label opens the page, the chevron folds the sections -->
+                <div
+                  v-if="'sub' in p"
+                  class="flex items-center rounded-md text-sm transition-colors"
+                  :class="isActive(p.to) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
+                >
+                  <NuxtLink
+                    :to="p.to"
+                    class="flex flex-1 items-center gap-3 py-2 pl-3"
+                  >
+                    <component
+                      :is="p.icon"
+                      class="size-4"
+                      :class="p.color"
+                      aria-hidden="true"
+                    />
+                    {{ p.label }}
+                  </NuxtLink>
+                  <button
+                    type="button"
+                    class="grid h-9 w-10 place-items-center rounded-md"
+                    :aria-expanded="analyseOpen"
+                    aria-controls="app-menu-analyse"
+                    :aria-label="`${p.label}: Bereiche ${analyseOpen ? 'zuklappen' : 'aufklappen'}`"
+                    @click="analyseOpen = !analyseOpen"
+                  >
+                    <ChevronDown
+                      class="size-4 transition-transform duration-200"
+                      :class="analyseOpen ? 'rotate-180' : ''"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
+                <div
+                  v-if="'sub' in p"
+                  id="app-menu-analyse"
+                  class="grid transition-all duration-200 ease-out"
+                  :class="analyseOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+                  :inert="!analyseOpen"
+                >
+                  <div class="flex flex-col gap-0.5 overflow-hidden">
+                    <NuxtLink
+                      v-for="k in KATEGORIEN"
+                      :key="k.key"
+                      :to="kategorieRoute(k.key)"
+                      class="flex items-center gap-2.5 rounded-md py-1.5 pr-3 pl-10 text-sm transition-colors"
+                      :class="isActive(p.to) && aktiveKategorie === k.key ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
+                      :aria-current="isActive(p.to) && aktiveKategorie === k.key ? 'page' : undefined"
+                      @click="close"
+                    >
+                      <component
+                        :is="KATEGORIE_ICON[k.key].icon"
+                        class="size-3.5"
+                        :class="KATEGORIE_ICON[k.key].color"
+                        aria-hidden="true"
+                      />
+                      {{ k.label }}
+                    </NuxtLink>
+                  </div>
+                </div>
+                <NuxtLink
+                  v-else
+                  :to="p.to"
+                  class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+                  :class="isActive(p.to, 'section' in p ? p.section : undefined) ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'"
+                  :aria-current="isActive(p.to, 'section' in p ? p.section : undefined) ? 'page' : undefined"
+                  @click="'browse' in p && rememberOrder(p.browse)"
+                >
+                  <component
+                    :is="p.icon"
+                    class="size-4"
+                    :class="p.color"
+                    aria-hidden="true"
+                  />
+                  {{ p.label }}
+                </NuxtLink>
+              </template>
             </template>
 
             <button

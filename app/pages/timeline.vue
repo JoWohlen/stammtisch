@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { CalendarPlus, TreePine } from '@lucide/vue'
 import { formatDate } from '@/lib/format'
+import { ICON_COLOR } from '@/lib/icon-colors'
+import { memberColor } from '@/lib/members'
+import { nextPlaner, weihnachtsessenNext } from '@/lib/planer-rotation'
 import { scoreScale } from '@/lib/score-color'
 import { buildTimeline, type TimelineEvent } from '@/lib/timeline'
 
@@ -9,6 +13,11 @@ const { visits, getAwards, memberPath, overviewStats: s } = useStammtisch()
 const years = buildTimeline(visits, getAwards, memberPath)
 /** dot colour = Ø Gesamt on the same red → amber → green ramp as everywhere else */
 const scale = scoreScale(visits.map(v => v.averages.gesamt))
+/** whoever is next in the planning rotation (skipped members first) */
+const naechster = nextPlaner(visits)
+/** depends on today's date, so only decided in the browser (the page is prerendered) */
+const weihnachten = ref(false)
+onMounted(() => (weihnachten.value = weihnachtsessenNext(visits)))
 
 const description = s.ersterBesuch && s.letzterBesuch
   ? `${s.besuche} Stammtische vom ${formatDate(s.ersterBesuch)} bis ${formatDate(s.letzterBesuch)}`
@@ -40,7 +49,7 @@ const TONE: Record<TimelineEvent['tone'], string> = {
       <!-- the year stays visible below the app header while its evenings scroll by -->
       <h2
         :id="`jahr-${y.year}`"
-        class="sticky top-14 z-10 -mx-4 bg-background/90 px-4 py-2 text-xl font-semibold tracking-tight backdrop-blur sm:-mx-6 sm:px-6"
+        class="sticky top-[var(--app-header-h,3.5rem)] z-10 transition-[top] duration-200 ease-out -mx-4 bg-background/90 px-4 py-2 text-xl font-semibold tracking-tight backdrop-blur sm:-mx-6 sm:px-6"
       >
         {{ y.year }}
         <span class="ml-1 text-sm font-normal text-muted-foreground">{{ y.entries.length }} Stammtische</span>
@@ -101,6 +110,51 @@ const TONE: Record<TimelineEvent['tone'], string> = {
         </li>
       </ol>
     </section>
+
+    <div
+      v-if="weihnachten"
+      class="mx-auto flex w-fit flex-col items-center gap-1 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
+    >
+      <span class="flex items-center gap-2">
+        <TreePine
+          class="size-4 text-emerald-600 dark:text-emerald-500"
+          aria-hidden="true"
+        />
+        <span class="text-muted-foreground">Als Nächstes:</span>
+        <span class="font-semibold">Weihnachtsessen 🎄</span>
+      </span>
+      <span
+        v-if="naechster"
+        class="flex items-center gap-1.5 text-xs text-muted-foreground"
+      >
+        danach plant
+        <span
+          class="size-2 rounded-full"
+          :style="{ backgroundColor: memberColor(naechster) }"
+          aria-hidden="true"
+        />
+        <span class="font-medium text-foreground">{{ naechster }}</span>
+      </span>
+    </div>
+    <div
+      v-else-if="naechster"
+      class="mx-auto flex w-fit items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
+    >
+      <CalendarPlus
+        class="size-4"
+        :class="ICON_COLOR.planer"
+        aria-hidden="true"
+      />
+      <span class="text-muted-foreground">Als Nächstes plant</span>
+      <span class="flex items-center gap-1.5 font-semibold">
+        <span
+          class="size-2 rounded-full"
+          :style="{ backgroundColor: memberColor(naechster) }"
+          aria-hidden="true"
+        />
+        {{ naechster }}
+      </span>
+    </div>
 
     <p class="text-center text-sm text-muted-foreground">
       Fortsetzung folgt … 🍺

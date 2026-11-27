@@ -130,7 +130,7 @@ const GENERATORS: Generator[] = [
   },
   ({ visits }) => {
     const low = ranked(visits, v => v.bierpreis).at(-1)
-    return low ? fact('bier-billig', 'bier', `Das billigste Bier gab es für ${formatEuro(low.x, true)} bei ${low.v.brauhaus}.`) : null
+    return low ? fact('bier-billig', 'bier', `Das günstigste Bier gab es für ${formatEuro(low.x, true)} bei ${low.v.brauhaus}.`) : null
   },
   ({ visits }) => {
     const years = [...groupBy(visits, v => v.date.slice(0, 4))].map(([y, vs]) => ({ y, l: sum(vs.map(v => v.liter ?? 0)) }))
