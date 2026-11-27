@@ -10,24 +10,24 @@ import { DRUNK_EVENT, SERVE_BEER_EVENT } from '@/lib/drunk'
  * 1. The page fades to dark and a bottle fades in in the middle; only the bottle can be clicked.
  * 2. A click pops the cap off, then the bottle fades away
  *    while the page fades back in.
- * 3. Then the page is drunk for 10 s: everything on screen sways smoothly, each block on its own, and
- *    goes blurry. Fades in over 3 s and out over the last 4 s (eased), then everything is as before.
- *    Meanwhile the page can't be clicked, scrolled, swiped or typed into, and no new beer comes.
+ * 3. Then the page is drunk for 7 s: everything on screen blurs in and out again, and every visible
+ *    element (text, headings, buttons, icons, charts, badges, the cards themselves …) wanders about on
+ *    its own random path. The page can't be clicked, scrolled, swiped or typed into meanwhile, and
+ *    no new beer comes: you have to wait until it's over, then everything is as before.
  *
- * Made for weak phones too. As nothing can scroll, only what is on screen takes part: the visible
- * blocks (cards, and whatever else is on screen outside cards) each get one animation, worked out up
- * front as keyframes (moving and turning only), which the GPU plays by itself; nothing is computed per
- * frame and nothing off screen moves. The blur is one screen-sized layer in front (backdrop-filter)
- * that only fades; on phones with little memory it is lighter, and if frames still come too slowly
- * it is dropped and only the swaying stays.
+ * Smooth on weak phones too. As nothing can scroll, only what is on screen takes part; everything off
+ * screen stays as it is. Each moving element gets one animation of moving and turning only, worked out
+ * up front for all 7 s, which the GPU then plays by itself: nothing is computed per frame. The blur is
+ * one screen-sized layer in front (backdrop-filter) whose opacity fades; on phones with little memory it
+ * is lighter, and if frames still come too slowly it is dropped and only the movement stays.
  *
  * Shaking works where the browser gives motion data without asking (Android); iPhones only give it
  * after a permission prompt, which we don't show for an easter egg.
  */
 
-const DURATION_MS = 10_000
-const RAMP_UP_MS = 3_000
-const RAMP_DOWN_MS = 4_000
+const DURATION_MS = 7_000
+const RAMP_UP_MS = 2_000
+const RAMP_DOWN_MS = 2_500
 
 /** change in acceleration (m/s²) between two readings that counts as a jolt */
 const JOLT = 22
@@ -35,10 +35,12 @@ const JOLT = 22
 const JOLTS = 3
 const SHAKE_WINDOW_MS = 1_000
 
-/** at most this many blocks move (a phone screen has far fewer) */
-const MAX_MOVERS = 40
-/** blocks containing a card are split further, down to this depth */
-const MAX_DEPTH = 5
+/** the visible elements that wander about on their own; inside one, the rest moves along with it */
+const MOVERS = 'h1, h2, h3, h4, p, li, a, button, label, svg, img, canvas, table, [data-slot="badge"], [role="tab"], [data-slot="card-description"], span'
+/** the cards move too (gently), with their content wandering about on top */
+const CARDS = '[data-slot="card"]'
+/** at most this many elements move (more than a phone screen shows) */
+const MAX_MOVERS = 150
 /** one keyframe every this many ms; in between they move in a straight line (too short to see) */
 const STEP_MS = 100
 /** below this frame time (ms) the phone keeps up; above it the blur goes */
@@ -140,8 +142,16 @@ function closeBeer() {
 
 // ---------- drunk ----------
 
-/** speed, phase and size of an element's swaying, so nothing moves in sync */
-interface Wave { el: HTMLElement, f: number, ph: number, ax: number, ay: number, ar: number }
+/** an element's random path: two waves per direction with their own speeds and phases, so nothing moves in sync or repeats */
+interface Wave {
+  el: Element
+  /** size of the movement: px sideways, px up and down, degrees */
+  x: number
+  y: number
+  r: number
+  f: [number, number, number, number, number, number]
+  ph: [number, number, number, number, number, number]
+}
 
 const drunk = ref(false)
 /** the blurry layer in front of the page */
@@ -156,7 +166,7 @@ let hazeAnim: Animation | null = null
 let timer: ReturnType<typeof setTimeout> | undefined
 let fpsRaf = 0
 
-/** 0 → 1 → 0 in a straight line over the 10 s */
+/** 0 → 1 → 0 in a straight line over the 7 s */
 const levelAt = (e: number) => e < 0
   ? 0
   : e < RAMP_UP_MS ? e / RAMP_UP_MS : e > DURATION_MS - RAMP_DOWN_MS ? Math.max(0, (DURATION_MS - e) / RAMP_DOWN_MS) : 1
@@ -167,15 +177,10 @@ const smoother = (l: number) => l ** 3 * (l * (6 * l - 15) + 10)
 const rnd = (a: number, z: number) => a + Math.random() * (z - a)
 const sign = () => (Math.random() < 0.5 ? -1 : 1)
 
-/**
- * A block's position: the slow drift of the whole page (the same for all) plus its own wave on top;
- * t in seconds, k = how drunk (0 … 1)
- */
-const blockAt = (w: Wave, t: number, k: number) => {
-  const x = Math.sin(t * 0.9) * 20 + w.ax * Math.sin(t * w.f + w.ph) * 14
-  const y = Math.sin(t * 1.3 + 1) * 8 + w.ay * Math.cos(t * w.f * 1.3 + w.ph) * 10
-  const r = Math.sin(t * 0.7 + 0.5) * 2 + w.ar * Math.sin(t * w.f * 0.8 + w.ph) * 3.5
-  return `translate(${(k * x).toFixed(2)}px, ${(k * y).toFixed(2)}px) rotate(${(k * r).toFixed(3)}deg)`
+/** where an element is at t seconds, k = how drunk (0 … 1) */
+const waveAt = (w: Wave, t: number, k: number) => {
+  const mix = (i: number) => 0.65 * Math.sin(t * w.f[i]! + w.ph[i]!) + 0.35 * Math.sin(t * w.f[i + 1]! + w.ph[i + 1]!)
+  return `translate(${(k * w.x * mix(0)).toFixed(2)}px, ${(k * w.y * mix(2)).toFixed(2)}px) rotate(${(k * w.r * mix(4)).toFixed(3)}deg)`
 }
 
 const onScreen = (el: Element) => {
@@ -183,27 +188,43 @@ const onScreen = (el: Element) => {
   return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth
 }
 
+/** a random path; small things wander further than big ones */
+function randomWave(el: Element, size: number): Wave {
+  const f = () => rnd(0.5, 2.2)
+  const ph = () => rnd(0, 6.28)
+  return {
+    el,
+    x: sign() * rnd(10, 22) * size,
+    y: sign() * rnd(6, 14) * size,
+    r: sign() * rnd(2, 7) * size,
+    f: [f(), f(), f(), f(), f(), f()],
+    ph: [ph(), ph(), ph(), ph(), ph(), ph()],
+  }
+}
+
 /**
- * The blocks on screen that sway: every card, plus the pieces outside cards (title, tabs, text …);
- * a block holding cards is split into its children instead, so each card moves on its own.
- * Together they cover what is visible; everything off screen stays as it is.
+ * Everything visible on screen: every card (gently), and in and around them each text, heading,
+ * button, icon, chart … The outermost of those only: a word inside a paragraph moves with its paragraph.
  */
 function pickMovers(): Wave[] {
-  const blocks: HTMLElement[] = []
-  const walk = (parent: Element, depth: number) => {
-    for (const el of parent.children) {
-      if (!(el instanceof HTMLElement) || !onScreen(el)) continue
-      const split = depth < MAX_DEPTH && !el.matches('[data-slot="card"]') && el.querySelector('[data-slot="card"]')
-      if (split) walk(el, depth + 1)
-      else blocks.push(el)
+  const scopes = [document.querySelector('main'), document.querySelector('[data-app-bar]')].filter(Boolean) as Element[]
+  const found = new Set<Element>()
+  for (const scope of scopes) {
+    for (const hit of scope.querySelectorAll(MOVERS)) {
+      if (!onScreen(hit)) continue
+      // a plain inline element (a word in a line) can't be moved on its own: its block moves instead
+      // (icons, images and charts can, even inline)
+      let el: Element | null = hit
+      while (el && el !== scope && !el.matches('svg, img, canvas') && getComputedStyle(el).display === 'inline') el = el.parentElement
+      if (el && el !== scope) found.add(el)
     }
   }
-  const main = document.querySelector('main')
-  if (main) walk(main, 0)
-  const bar = document.querySelector('[data-app-bar] > div')
-  if (bar) walk(bar, MAX_DEPTH)
-  return blocks.slice(0, MAX_MOVERS)
-    .map(el => ({ el, f: rnd(0.6, 1.7), ph: rnd(0, 6.28), ax: sign() * rnd(0.5, 1.3), ay: sign() * rnd(0.5, 1.3), ar: sign() * rnd(0.4, 1.3) }))
+  const outermost = [...found].filter((el) => {
+    for (let p = el.parentElement; p; p = p.parentElement) if (found.has(p)) return false
+    return true
+  })
+  const cards = [...document.querySelectorAll(`main ${CARDS}`)].filter(onScreen)
+  return [...cards.map(el => randomWave(el, 0.5)), ...outermost.map(el => randomWave(el, 1))].slice(0, MAX_MOVERS)
 }
 
 /** phones with little memory (Chrome reports it) get a lighter blur right away */
@@ -220,12 +241,12 @@ function frames<K>(now: number, at: (t: number, e: number) => K) {
   return { list, left }
 }
 
-/** plans all 10 s up front: one animation per block and one for the blur */
+/** plans all 7 s up front: one animation per element and one for the blur */
 function plan(now: number) {
   const opts = (left: number): KeyframeAnimationOptions => ({ duration: left, easing: 'linear' })
   if (!reduceMotion()) {
     for (const w of waves) {
-      const { list, left } = frames(now, (t, e) => ({ transform: blockAt(w, t, smooth(levelAt(e))) }))
+      const { list, left } = frames(now, (t, e) => ({ transform: waveAt(w, t, smooth(levelAt(e))) }))
       anims.push(w.el.animate(list, opts(left)))
     }
   }
@@ -249,12 +270,12 @@ function watchSpeed() {
   const tick = (now: number) => {
     if (!drunk.value) return
     const e = now - start
-    if (last && e > 1200) {
+    if (last && e > 600) {
       sum += now - last
       n++
     }
     last = now
-    if (e < 2800) {
+    if (e < 2000) {
       fpsRaf = requestAnimationFrame(tick)
       return
     }

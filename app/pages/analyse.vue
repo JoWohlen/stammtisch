@@ -76,7 +76,14 @@ useHorizontalSwipe(
     const k = neighbour(d)
     if (k) select(k)
   },
-  { target: () => content.value, can: d => !!neighbour(d) },
+  {
+    target: () => content.value,
+    can: d => !!neighbour(d),
+    preview: (d) => {
+      const k = KATEGORIEN.find(c => c.key === neighbour(d))
+      return k ? { title: k.label, section: true } : null
+    },
+  },
 )
 </script>
 

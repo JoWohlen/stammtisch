@@ -1,4 +1,4 @@
-import { useEventListener } from '@vueuse/core'
+import { tryOnScopeDispose, useEventListener } from '@vueuse/core'
 
 /** element that handles horizontal touch itself (inputs, sliders, side-scrolling areas, maps/charts) */
 function handlesTouch(el: Element | null): boolean {
@@ -23,8 +23,6 @@ const LOCK_PX = 10
 /** let go past this share of the width (or flick faster than FLICK px/ms) and the card flies off */
 const FLY_SHARE = 0.2
 const FLICK = 0.35
-/** tilt (deg) at a drag of the full screen width */
-const TILT = 9
 /** pulling towards a side with nothing there only moves this fraction of the finger */
 const RUBBER = 0.22
 
@@ -39,8 +37,8 @@ export const cardSwipe = () => import.meta.client && window.matchMedia('(pointer
 /** name of the enter / leave transition for a switch in direction `dir` ('left' = to the next) */
 export const swapTransition = (dir: 'left' | 'right') => (cardSwipe() ? 'card-swap' : `slide-${dir}`)
 
-/** the card's look at a horizontal offset: moved and tilted, like a card held at the top */
-const cardTransform = (dx: number) => `translateX(${dx}px) rotate(${(dx / window.innerWidth) * TILT}deg)`
+/** the card's look at a horizontal offset: only moved sideways (no tilt, so nothing goes up or down) */
+const cardTransform = (dx: number) => `translateX(${dx}px)`
 
 /** current drag offset of each element, so flying off continues from where the finger let go */
 const dragged = new WeakMap<Element, number>()
@@ -49,10 +47,7 @@ const releaseSpeed = new WeakMap<Element, number>()
 /** running fly-off per element */
 const flying = new WeakMap<Element, Promise<void>>()
 
-/** pivot well below the visible part, so the tilt swings the content like a card held at the top */
-function setPivot(el: HTMLElement) {
-  const r = el.getBoundingClientRect()
-  el.style.transformOrigin = `${r.width / 2}px ${window.innerHeight * 1.5 - r.top}px`
+function promote(el: HTMLElement) {
   // own GPU layer while it moves: the page is only moved, not repainted every frame
   el.style.willChange = 'transform'
 }
@@ -66,10 +61,83 @@ function resetCard(el: HTMLElement) {
 /** true while `el` is flying off (then a second swipe is ignored) */
 export const isFlying = (el: Element | null | undefined) => !!el && flying.has(el)
 
+// ---------- the neighbour following in from the side ----------
+
+/** what the neighbour that way looks like before it is there: its title */
+export interface SwipePreview {
+  title: string
+  /** the card is a section inside the page (Analyse), not the whole page: no page padding */
+  section?: boolean
+}
+
+/** the current page's neighbours (set by its useHorizontalSwipe) */
+let previewOf: ((dir: 'left' | 'right') => SwipePreview | null) | null = null
+/** the panel next to the card: a stand-in for the neighbour with its title and empty cards */
+let peek: { el: HTMLElement, dir: 'left' | 'right' } | null = null
+
+/** the panel sits one screen width to the side of the card and moves with it */
+const peekTransform = (dir: 'left' | 'right', cardX: number) =>
+  `translateX(${cardX + (dir === 'left' ? 1 : -1) * window.innerWidth}px)`
+
+function removePeek() {
+  peek?.el.remove()
+  peek = null
+}
+
+/** the panel for that side, created on first need; null if nothing is there */
+function peekFor(card: HTMLElement, dir: 'left' | 'right'): HTMLElement | null {
+  if (peek?.dir === dir) return peek.el
+  removePeek()
+  const p = previewOf?.(dir)
+  if (!p) return null
+  const r = card.getBoundingClientRect()
+  // below the menu bar (when it is showing), so the title can be seen
+  const bar = Math.max(0, document.querySelector('[data-app-bar]')?.getBoundingClientRect().bottom ?? 0)
+  const el = document.createElement('div')
+  el.className = 'pointer-events-none fixed bottom-0 z-30 overflow-hidden bg-background text-foreground'
+  Object.assign(el.style, { top: `${Math.max(bar, r.top)}px`, left: `${r.left}px`, width: `${r.width}px`, willChange: 'transform' })
+  el.setAttribute('aria-hidden', 'true')
+  // laid out like the real page, so the title lands about where it will be
+  const inner = document.createElement('div')
+  inner.className = p.section ? 'flex flex-col gap-6' : 'mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-5 sm:px-6'
+  const title = document.createElement('div')
+  title.className = p.section ? 'text-lg font-semibold tracking-tight' : 'text-2xl font-semibold tracking-tight sm:text-3xl'
+  title.textContent = p.title
+  inner.append(title)
+  for (const w of ['w-2/3', 'w-1/2', 'w-3/5']) {
+    const box = document.createElement('div')
+    box.className = 'flex h-44 flex-col gap-3 rounded-xl border bg-card p-6'
+    box.innerHTML = `<div class="h-3 ${w} rounded bg-muted"></div><div class="h-3 w-1/3 rounded bg-muted"></div>`
+    inner.append(box)
+  }
+  el.append(inner)
+  document.body.append(el)
+  peek = { el, dir }
+  return el
+}
+
+/** once the real neighbour has replaced the card, the stand-in fades away */
+function handOver(card: HTMLElement, panel: HTMLElement) {
+  const t0 = performance.now()
+  const check = () => {
+    if (peek?.el !== panel) return
+    if (card.isConnected && performance.now() - t0 < 700) {
+      requestAnimationFrame(check)
+      return
+    }
+    // replaced: fade into the real page; not replaced (navigation didn't happen): just go
+    if (card.isConnected) return removePeek()
+    panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: 'ease-out', fill: 'forwards' })
+      .finished.then(() => peek?.el === panel && removePeek(), () => {})
+  }
+  requestAnimationFrame(check)
+}
+
 /**
- * Dating-app style: the card (`el`) flies off to the `dir` side, tilting, from where the finger
+ * Dating-app style: the card (`el`) flies off to the `dir` side (straight sideways) from where the finger
  * left it (or from rest for a key / button). Resolves when it is gone; the caller then shows the next one,
- * whose enter transition (`card-swap` in main.css) lets it come up from behind.
+ * Meanwhile the neighbour's stand-in (see peekFor) slides in alongside and stops in place, and fades
+ * into the real one once that has replaced the card.
  * The element stays off-screen until it is replaced; if it is still there after a moment, it comes back.
  */
 export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.querySelector('main')): Promise<void> {
@@ -78,21 +146,30 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
   if (running) return running
   const dx = dragged.get(el) ?? 0
   const sign = dir === 'left' ? -1 : 1
-  const toX = sign * window.innerWidth * 1.1
-  if (!dx) setPivot(el)
+  // exactly one screen width, so the neighbour (moving along) ends right in place
+  const toX = sign * window.innerWidth
+  if (!dx) promote(el)
   el.style.transform = ''
   // it starts at the finger's speed (at least a brisk one), so there's no kink when letting go;
   // the easing's start slope is 1, i.e. it begins at distance / duration
   const speed = Math.max(12, Math.abs(releaseSpeed.get(el) ?? 0))
   releaseSpeed.delete(el)
   const duration = Math.min(53, Math.max(23, Math.abs(toX - dx) / speed))
+  const timing: KeyframeAnimationOptions = { duration, easing: 'cubic-bezier(0.3, 0.3, 0.6, 1)', fill: 'forwards' }
   const anim = el.animate(
     [
       { transform: cardTransform(dx), opacity: 1 },
       { transform: cardTransform(toX), opacity: 0.4 },
     ],
-    { duration, easing: 'cubic-bezier(0.3, 0.3, 0.6, 1)', fill: 'forwards' },
+    timing,
   )
+  // the neighbour comes along from the side and stops in place
+  const panel = peekFor(el, dir)
+  if (panel) {
+    panel.style.transform = ''
+    panel.animate([{ transform: peekTransform(dir, dx) }, { transform: 'none' }], timing)
+    anim.finished.then(() => handOver(el, panel), () => {})
+  }
   const done = anim.finished.then(() => {}, () => {})
   flying.set(el, done)
   done.then(() => setTimeout(() => {
@@ -113,14 +190,20 @@ function springBack(el: HTMLElement) {
   dragged.delete(el)
   releaseSpeed.delete(el)
   el.style.transform = ''
+  const timing = { duration: 87, easing: 'cubic-bezier(0.25, 1.5, 0.45, 1)' }
+  // the neighbour slides back out of view with it
+  const panel = peek
+  if (panel) {
+    panel.el.style.transform = ''
+    panel.el.animate([{ transform: peekTransform(panel.dir, dx) }, { transform: peekTransform(panel.dir, 0) }], { ...timing, fill: 'forwards' })
+      .finished.then(() => peek === panel && removePeek(), () => {})
+  }
   if (!dx) {
     resetCard(el)
     return
   }
-  el.animate(
-    [{ transform: cardTransform(dx) }, { transform: 'none' }],
-    { duration: 87, easing: 'cubic-bezier(0.25, 1.5, 0.45, 1)' },
-  ).finished.then(() => resetCard(el), () => {})
+  el.animate([{ transform: cardTransform(dx) }, { transform: 'none' }], timing)
+    .finished.then(() => resetCard(el), () => {})
 }
 
 interface SwipeOptions {
@@ -128,6 +211,8 @@ interface SwipeOptions {
   target?: () => HTMLElement | null | undefined
   /** whether there is something that way ('left' = next); if not, the card only stretches a little */
   can?: (dir: 'left' | 'right') => boolean
+  /** title of the neighbour that way, shown on the stand-in that follows the card in from the side */
+  preview?: (dir: 'left' | 'right') => SwipePreview | null
 }
 
 /**
@@ -135,7 +220,8 @@ interface SwipeOptions {
  * except on elements that pan themselves (mark more with `data-no-swipe`), while a fullscreen chart
  * locks the body, or while text is selected. 'left' = finger moved left = "next".
  *
- * While the finger moves, the target follows it and tilts like a card on a dating app; let go far
+ * While the finger moves, the target follows it sideways and the neighbour that way (`preview`)
+ * follows right next to it, coming in from the side; let go far
  * enough (or flick) and `onSwipe` is called with the card still where the finger left it: the
  * handler calls `flyOut` to send it off. Otherwise it springs back.
  * On desktop the arrow keys do the same: → = "next" (like swiping left), ← = "previous".
@@ -144,6 +230,12 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
   if (!import.meta.client) return
   const target = () => (opts.target ? opts.target() : document.querySelector('main')) ?? null
   const can = (d: 'left' | 'right') => opts.can?.(d) ?? true
+  // this page's neighbours for the stand-in; a page set up before the old one is gone doesn't get unset
+  const mine = opts.preview ?? null
+  previewOf = mine
+  tryOnScopeDispose(() => {
+    if (previewOf === mine) previewOf = null
+  })
 
   let start: { x: number, y: number, t: number } | null = null
   /** where the finger came down; only checked (handlesTouch) once the gesture turns out horizontal */
@@ -161,7 +253,13 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
   let pending = 0
   const paint = () => {
     frame = 0
-    if (el) el.style.transform = cardTransform(pending)
+    if (!el) return
+    el.style.transform = cardTransform(pending)
+    // the neighbour on the side the card is pulled away from follows right next to it
+    const dir = pending < 0 ? 'left' : 'right'
+    const panel = pending && can(dir) ? peekFor(el, dir) : null
+    if (panel) panel.style.transform = peekTransform(dir, pending)
+    else removePeek()
   }
 
   useEventListener(window, 'touchstart', (e: TouchEvent) => {
@@ -188,7 +286,7 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
         el = target()
         originX = touch.clientX
         if (!el || isFlying(el) || !cardSwipe()) el = null
-        else setPivot(el)
+        else promote(el)
       }
     }
     if (lock !== 'h') return

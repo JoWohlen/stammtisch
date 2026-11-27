@@ -135,13 +135,12 @@
 }
 
 /* swiping like on a dating app (composables/useHorizontalSwipe.ts): the old card has already flown off
-   (so it just goes), the next one comes up from behind and settles with a little bounce.
+   (so it just goes) while a stand-in for the next one has slid in alongside; the real one appears under it.
    Used for browsing members / Brauhäuser (middleware/browse-slide.global.ts) and the Analyse categories. */
 .card-swap-enter-active {
-  transition: transform 63ms cubic-bezier(0.2, 1.25, 0.4, 1), opacity 37ms ease-out;
+  transition: opacity 37ms ease-out;
 }
 .card-swap-enter-from {
-  transform: scale(0.92) translateY(0.75rem);
   opacity: 0;
 }
 /* desktop (no touch): the content slides over quickly instead (see swapTransition) */

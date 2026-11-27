@@ -119,7 +119,13 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
 
   useHorizontalSwipe(
     dir => go(dir === 'left' ? next.value : prev.value),
-    { can: dir => !!(dir === 'left' ? next.value : prev.value) },
+    {
+      can: dir => !!(dir === 'left' ? next.value : prev.value),
+      preview: (dir) => {
+        const t = dir === 'left' ? next.value : prev.value
+        return t ? { title: t.label } : null
+      },
+    },
   )
 
   return { prev, next, counter, go }
