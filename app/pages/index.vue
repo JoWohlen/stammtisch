@@ -24,7 +24,8 @@ const description = s.ersterBesuch && s.letzterBesuch
     </template>
     <OverviewKpiCard />
     <OverviewFunFactCard />
-    <OverviewMemberCard />
-    <OverviewBrauhausGrid />
+    <!-- further down: brought to life (hydrated) only when scrolled into view, so the page is ready sooner on phones -->
+    <LazyOverviewMemberCard hydrate-on-visible />
+    <LazyOverviewBrauhausGrid hydrate-on-visible />
   </AppPage>
 </template>

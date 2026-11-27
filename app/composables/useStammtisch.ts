@@ -290,10 +290,19 @@ const teilnehmer = new Map(
 
 const getTeilnehmer = (slug: string): Teilnehmer | null => teilnehmer.get(slug) ?? null
 
-const awards = computeAwards(visits, data.participants)
-const getAwards = (v: Visit): Award[] => awards.get(v.nr) ?? []
-const memberAwards = computeMemberAwards(visits, data.participants)
-const getMemberAwards = (name: string): Award[] => memberAwards.get(name) ?? []
+/**
+ * Awards, their mentions and the fun facts are only worked out when a page first needs them
+ * (not on every page load): together they cost a noticeable moment on older phones.
+ */
+const lazy = <T>(make: () => T) => {
+  let value: T | undefined
+  return () => (value ??= make())
+}
+
+const awards = lazy(() => computeAwards(visits, data.participants))
+const getAwards = (v: Visit): Award[] => awards().get(v.nr) ?? []
+const memberAwards = lazy(() => computeMemberAwards(visits, data.participants))
+const getMemberAwards = (name: string): Award[] => memberAwards().get(name) ?? []
 
 /** one place an award was handed out, for the list on /awards */
 export interface AwardMention {
@@ -309,27 +318,30 @@ export interface AwardMention {
 }
 
 /** award type → every mention, newest visit first / participant order */
-const awardMentions = new Map<string, AwardMention[]>(AWARD_DEFS.map(d => [d.type, []]))
-for (const v of [...visits].sort((a, b) => b.date.localeCompare(a.date) || b.nr - a.nr)) {
-  for (const a of getAwards(v)) {
-    awardMentions.get(a.type)!.push({
-      key: `${v.nr}-${a.key}`,
-      title: v.brauhaus,
-      to: `/brauhaus/${v.slug}?besuch=${v.nr}`,
-      date: v.date,
-      note: a.label !== AWARD_DEFS.find(d => d.type === a.type)!.label ? a.label : undefined,
-      detail: a.detail,
-    })
+const awardMentions = lazy(() => {
+  const mentions = new Map<string, AwardMention[]>(AWARD_DEFS.map(d => [d.type, []]))
+  for (const v of [...visits].sort((a, b) => b.date.localeCompare(a.date) || b.nr - a.nr)) {
+    for (const a of getAwards(v)) {
+      mentions.get(a.type)!.push({
+        key: `${v.nr}-${a.key}`,
+        title: v.brauhaus,
+        to: `/brauhaus/${v.slug}?besuch=${v.nr}`,
+        date: v.date,
+        note: a.label !== AWARD_DEFS.find(d => d.type === a.type)!.label ? a.label : undefined,
+        detail: a.detail,
+      })
+    }
   }
-}
-for (const p of data.participants) {
-  for (const a of getMemberAwards(p.name)) {
-    awardMentions.get(a.type)!.push({ key: a.key, title: p.name, to: `/teilnehmer/${p.slug}`, detail: a.detail })
+  for (const p of data.participants) {
+    for (const a of getMemberAwards(p.name)) {
+      mentions.get(a.type)!.push({ key: a.key, title: p.name, to: `/teilnehmer/${p.slug}`, detail: a.detail })
+    }
   }
-}
-const getAwardMentions = (type: string): AwardMention[] => awardMentions.get(type) ?? []
+  return mentions
+})
+const getAwardMentions = (type: string): AwardMention[] => awardMentions().get(type) ?? []
 
-const funFacts = computeFunFacts(visits, data.participants)
+const funFacts = lazy(() => computeFunFacts(visits, data.participants))
 
 /** All data is static (imported at build time), so no reactivity is needed. */
 const memberSlugs = new Map(data.participants.map(p => [p.name, p.slug]))
@@ -339,6 +351,25 @@ const memberPath = (name: string | null | undefined): string | null => {
   return slug ? `/teilnehmer/${slug}` : null
 }
 
+const brauhausList = [...brauhaeuser.values()]
+
 export function useStammtisch() {
-  return { visits, participants: data.participants, overviewStats, brauhausRanking, brauhaeuser: [...brauhaeuser.values()], getBrauhaus, getNachbarn, getTeilnehmer, getAwards, getMemberAwards, getAwardMentions, funFacts, memberPath }
+  return {
+    visits,
+    participants: data.participants,
+    overviewStats,
+    brauhausRanking,
+    brauhaeuser: brauhausList,
+    getBrauhaus,
+    getNachbarn,
+    getTeilnehmer,
+    getAwards,
+    getMemberAwards,
+    getAwardMentions,
+    /** worked out on first use */
+    get funFacts() {
+      return funFacts()
+    },
+    memberPath,
+  }
 }

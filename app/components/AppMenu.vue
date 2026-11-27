@@ -144,10 +144,12 @@ const toggleNightMode = () => {
       />
     </div>
   </div>
+  <!-- frosted glass (backdrop-blur) from sm up only: on phones it is redone on every scrolled frame,
+       which older ones can't keep up with, so there the bar is just nearly opaque -->
   <header
     ref="root"
     data-app-bar
-    class="sticky top-0 z-50 border-b bg-background/85 backdrop-blur transition-transform duration-200 ease-[cubic-bezier(0.5,1,0.89,1)] supports-[backdrop-filter]:bg-background/70"
+    class="sticky top-0 z-50 border-b bg-background/95 transition-transform duration-200 ease-[cubic-bezier(0.5,1,0.89,1)] sm:bg-background/85 sm:backdrop-blur sm:supports-[backdrop-filter]:bg-background/70"
     :class="hidden ? '-translate-y-full' : ''"
     @focusin="hidden = false"
   >

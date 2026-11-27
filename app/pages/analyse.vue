@@ -179,28 +179,54 @@ useHorizontalSwipe(
         ref="content"
         class="grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
+        <!-- the first card of each category right away, the ones further down only once they are
+             scrolled into view (on a phone that's most of the page); the map with its geo data only on Orte -->
         <template v-if="kategorie === 'bewertungen'">
           <AnalyseScoreTimelineCard class="lg:col-span-2" />
-          <AnalysePreisLeistungCard class="lg:col-span-2" />
-          <AnalyseKonsensCard class="lg:col-span-2" />
-          <AnalyseGeschmackCard class="lg:col-span-2" />
-          <AnalyseNotenverteilungCard class="lg:col-span-2" />
-          <AnalysePcaCard class="lg:col-span-2" />
-          <AnalysePlanerBiasCard class="lg:col-span-2" />
+          <LazyAnalysePreisLeistungCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalyseKonsensCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalyseGeschmackCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalyseNotenverteilungCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalysePcaCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalysePlanerBiasCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
         </template>
         <template v-else-if="kategorie === 'termine'">
           <AnalyseAnwesenheitCard class="lg:col-span-2" />
-          <AnalyseSaisonCard />
-          <AnalyseRhythmusCard />
+          <LazyAnalyseSaisonCard hydrate-on-visible />
+          <LazyAnalyseRhythmusCard hydrate-on-visible />
         </template>
         <template v-else-if="kategorie === 'bier'">
           <AnalyseBierpreisCard />
           <AnalyseBierbrilleCard />
-          <AnalyseBierBewertungCard class="lg:col-span-2" />
-          <AnalyseBierCard class="lg:col-span-2" />
+          <LazyAnalyseBierBewertungCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
+          <LazyAnalyseBierCard
+            hydrate-on-visible
+            class="lg:col-span-2"
+          />
         </template>
         <template v-else>
-          <AnalyseKarteCard class="lg:col-span-2" />
+          <LazyAnalyseKarteCard class="lg:col-span-2" />
         </template>
       </section>
     </Transition>

@@ -21,8 +21,8 @@ function handlesArrows(el: Element | null): boolean {
 /** finger travel (px) before a gesture counts as horizontal or vertical */
 const LOCK_PX = 10
 /** let go past this share of the width (or flick faster than FLICK px/ms) and the card flies off */
-const FLY_SHARE = 0.28
-const FLICK = 0.5
+const FLY_SHARE = 0.2
+const FLICK = 0.35
 /** tilt (deg) at a drag of the full screen width */
 const TILT = 9
 /** pulling towards a side with nothing there only moves this fraction of the finger */
@@ -78,14 +78,14 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
   if (running) return running
   const dx = dragged.get(el) ?? 0
   const sign = dir === 'left' ? -1 : 1
-  const toX = sign * window.innerWidth * 1.25
+  const toX = sign * window.innerWidth * 1.1
   if (!dx) setPivot(el)
   el.style.transform = ''
   // it starts at the finger's speed (at least a brisk one), so there's no kink when letting go;
   // the easing's start slope is 1, i.e. it begins at distance / duration
-  const speed = Math.max(1.6, Math.abs(releaseSpeed.get(el) ?? 0))
+  const speed = Math.max(12, Math.abs(releaseSpeed.get(el) ?? 0))
   releaseSpeed.delete(el)
-  const duration = Math.min(320, Math.max(120, Math.abs(toX - dx) / speed))
+  const duration = Math.min(53, Math.max(23, Math.abs(toX - dx) / speed))
   const anim = el.animate(
     [
       { transform: cardTransform(dx), opacity: 1 },
@@ -119,7 +119,7 @@ function springBack(el: HTMLElement) {
   }
   el.animate(
     [{ transform: cardTransform(dx) }, { transform: 'none' }],
-    { duration: 420, easing: 'cubic-bezier(0.25, 1.5, 0.45, 1)' },
+    { duration: 87, easing: 'cubic-bezier(0.25, 1.5, 0.45, 1)' },
   ).finished.then(() => resetCard(el), () => {})
 }
 
@@ -146,6 +146,8 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
   const can = (d: 'left' | 'right') => opts.can?.(d) ?? true
 
   let start: { x: number, y: number, t: number } | null = null
+  /** where the finger came down; only checked (handlesTouch) once the gesture turns out horizontal */
+  let downOn: Element | null = null
   /** null = undecided, then horizontal (we drag) or vertical (the page scrolls, we stay out) */
   let lock: 'h' | 'v' | null = null
   let el: HTMLElement | null = null
@@ -166,7 +168,9 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
     const touch = e.touches[0]
     lock = null
     el = null
-    start = e.touches.length === 1 && touch && !handlesTouch(e.target as Element) && document.body.style.overflow !== 'hidden'
+    // cheap checks only: this runs on every touch, also when just scrolling
+    downOn = e.target as Element
+    start = e.touches.length === 1 && touch && document.body.style.overflow !== 'hidden'
       ? { x: touch.clientX, y: touch.clientY, t: performance.now() }
       : null
     if (start) last = prev = { x: start.x, t: start.t }
@@ -179,7 +183,7 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
     const dy = touch.clientY - start.y
     if (!lock) {
       if (Math.hypot(dx, dy) < LOCK_PX) return
-      lock = Math.abs(dx) > 1.5 * Math.abs(dy) && !window.getSelection()?.toString() ? 'h' : 'v'
+      lock = Math.abs(dx) > 1.5 * Math.abs(dy) && !window.getSelection()?.toString() && !handlesTouch(downOn) ? 'h' : 'v'
       if (lock === 'h') {
         el = target()
         originX = touch.clientX
