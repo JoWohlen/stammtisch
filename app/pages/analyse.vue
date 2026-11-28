@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
-import { useElementSize } from '@vueuse/core'
 import { formatDate } from '@/lib/format'
 import { serveBeer } from '@/lib/drunk'
 import { isKategorie, KATEGORIE_KEYS as keys, KATEGORIEN, type Kategorie } from '@/lib/analyse-kategorien'
@@ -17,28 +16,10 @@ const aktiv = computed(() => KATEGORIEN.find(k => k.key === kategorie.value)!)
 /** the categories left and right of the current one, for the swipe hint */
 const prevKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) - 1] ?? null)
 const nextKat = computed(() => KATEGORIEN[keys.indexOf(kategorie.value) + 1] ?? null)
+/** slide direction of the last switch, for the transition */
+const dir = ref<'next' | 'prev'>('next')
 /** the current category's content, nudged when swiping past the first / last one */
 const content = ref<HTMLElement | null>(null)
-/** transition of the last switch (card on touch screens, quick slide on desktop) */
-const swap = ref('card-swap')
-
-/**
- * Touch screens: the categories left and right of the current one, rendered out of view (and only
- * once the phone is idle, so switching stays quick). Swiping brings in a copy of the real thing
- * right next to the current one, which then stays in place as the new category.
- */
-const ghosts = ref<Kategorie[]>([])
-const { width: contentWidth } = useElementSize(content)
-let cancelIdle = () => {}
-const renderGhosts = () => {
-  if (!cardSwipe()) return
-  cancelIdle()
-  cancelIdle = whenIdle(() => {
-    ghosts.value = [prevKat.value?.key, nextKat.value?.key].filter((k): k is Kategorie => !!k)
-  })
-}
-watch(kategorie, renderGhosts)
-onBeforeUnmount(() => cancelIdle())
 
 // ?kategorie=… keeps the tab on reload and in shared links (read after hydration, the prerendered page shows the first)
 const route = useRoute()
@@ -47,7 +28,6 @@ onMounted(() => {
   const q = route.query.kategorie
   if (isKategorie(q)) kategorie.value = q
   peek()
-  renderGhosts()
 })
 
 /**
@@ -67,20 +47,16 @@ function peek() {
   ], { duration: 1100, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' }), 700)
 }
 
-/** switches the visible category (card-swap / slide-left / slide-right in main.css) */
+/** switches the visible category, sliding in the right direction */
 function show(k: Kategorie) {
   if (k === kategorie.value) return false
-  swap.value = swapTransition(keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'left' : 'right')
+  dir.value = keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'next' : 'prev'
   kategorie.value = k
-  // (after a swipe it is already at the top, see flyOut)
   window.scrollTo({ top: 0, behavior: 'smooth' })
   return true
 }
 
-/** the current category flies off like a swiped card, then the chosen one comes up from behind */
-async function select(k: Kategorie) {
-  if (k === kategorie.value || isFlying(content.value)) return
-  await flyOut(keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'left' : 'right', content.value)
+function select(k: Kategorie) {
   if (show(k)) router.replace({ query: { ...route.query, kategorie: k === keys[0] ? undefined : k } })
 }
 
@@ -91,21 +67,12 @@ watch(() => route.query.kategorie, (q) => {
 })
 
 // swipe left → next category, right → previous (charts that scroll or pan themselves are left alone)
-const neighbour = (d: 'left' | 'right') => keys[keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)]
-useHorizontalSwipe(
-  (d) => {
-    const k = neighbour(d)
-    if (k) select(k)
-  },
-  {
-    target: () => content.value,
-    can: d => !!neighbour(d),
-    preview: (d) => {
-      const k = KATEGORIEN.find(c => c.key === neighbour(d))
-      return k ? { title: k.label, section: true, node: document.querySelector(`[data-swipe-ghost="${k.key}"]`) } : null
-    },
-  },
-)
+useHorizontalSwipe((d) => {
+  const i = keys.indexOf(kategorie.value) + (d === 'left' ? 1 : -1)
+  const k = keys[i]
+  if (k) select(k)
+  else edgeBump(d, content.value)
+})
 </script>
 
 <template>
@@ -199,7 +166,7 @@ useHorizontalSwipe(
 
     <!-- one category at a time; cards in a category: wide ones span both columns -->
     <Transition
-      :name="swap"
+      :name="`slide-${dir}`"
       mode="out-in"
     >
       <section
@@ -210,26 +177,36 @@ useHorizontalSwipe(
         <AnalyseKategorie :kategorie="kategorie" />
       </section>
     </Transition>
-
-    <!-- the neighbouring categories, out of view (see ghosts) -->
-    <div
-      v-if="ghosts.length"
-      class="pointer-events-none fixed top-0 left-[-400vw]"
-      :style="{ width: `${contentWidth}px` }"
-      aria-hidden="true"
-      inert
-    >
-      <section
-        v-for="k in ghosts"
-        :key="k"
-        :data-swipe-ghost="k"
-        class="grid grid-cols-1 gap-6 lg:grid-cols-2"
-      >
-        <AnalyseKategorie :kategorie="k" />
-      </section>
-    </div>
   </AppPage>
 </template>
+
+<style scoped>
+.slide-next-enter-active,
+.slide-next-leave-active,
+.slide-prev-enter-active,
+.slide-prev-leave-active {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+.slide-next-enter-from,
+.slide-prev-leave-to {
+  transform: translateX(2rem);
+  opacity: 0;
+}
+.slide-next-leave-to,
+.slide-prev-enter-from {
+  transform: translateX(-2rem);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-next-enter-active,
+  .slide-next-leave-active,
+  .slide-prev-enter-active,
+  .slide-prev-leave-active {
+    transition: none;
+  }
+}
+</style>
 
 <style>
 /* the arrows of the swipe hint nudge outwards now and then (global: used by Tailwind animate-[…] classes) */

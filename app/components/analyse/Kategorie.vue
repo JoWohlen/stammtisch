@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import type { Kategorie } from '@/lib/analyse-kategorien'
 
-/**
- * The cards of one Analyse category. Used for the category shown and, out of view, for its
- * neighbours, so swiping can bring in the real next one (see pages/analyse.vue).
- */
+/** The cards of one Analyse category (see pages/analyse.vue). */
 defineProps<{ kategorie: Kategorie }>()
 </script>
 

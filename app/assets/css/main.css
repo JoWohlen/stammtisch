@@ -134,16 +134,7 @@
   }
 }
 
-/* swiping like on a dating app (composables/useHorizontalSwipe.ts): the old card has already flown off
-   (so it just goes) while a stand-in for the next one has slid in alongside; the real one appears under it.
-   Used for browsing members / Brauhäuser (middleware/browse-slide.global.ts) and the Analyse categories. */
-.card-swap-enter-active {
-  transition: opacity 37ms ease-out;
-}
-.card-swap-enter-from {
-  opacity: 0;
-}
-/* desktop (no touch): the content slides over quickly instead (see swapTransition) */
+/* page slide when browsing between members / Brauhäuser (see middleware/browse-slide.global.ts) */
 .slide-left-enter-active,
 .slide-left-leave-active,
 .slide-right-enter-active,
@@ -175,14 +166,12 @@
   opacity: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-swap-enter-active,
   .slide-left-enter-active,
   .slide-left-leave-active,
   .slide-right-enter-active,
   .slide-right-leave-active {
     transition: opacity 120ms ease;
   }
-  .card-swap-enter-from,
   .slide-left-leave-to,
   .slide-right-enter-from,
   .slide-left-enter-from,

@@ -38,28 +38,6 @@ export function takeBrowseSlide() {
   return dir
 }
 
-/**
- * Neighbour pages, loaded ahead on touch screens so swiping can bring in the real next page:
- * the site is prerendered, so its HTML is the page as it will look. path → its <main> (null while loading)
- */
-const loaded = new Map<string, Element | null>()
-const MAX_LOADED = 8
-
-function preload(path: string) {
-  if (loaded.has(path)) return
-  loaded.set(path, null)
-  fetch(path)
-    .then(r => (r.ok ? r.text() : ''))
-    .then((html) => {
-      const main = html ? new DOMParser().parseFromString(html, 'text/html').querySelector('main') : null
-      if (!main) return loaded.delete(path)
-      loaded.set(path, main)
-      // only the last few
-      while (loaded.size > MAX_LOADED) loaded.delete(loaded.keys().next().value!)
-    })
-    .catch(() => loaded.delete(path))
-}
-
 const useOrder = () => useState<Record<BrowseKind, string[]>>('browse-order', () => ({ brauhaus: [], teilnehmer: [] }))
 
 /** Call from a list when one of its entries is clicked: `paths` in the order shown. */
@@ -126,39 +104,19 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
   const next = computed(() => at(position.value.i + 1))
   const counter = computed(() => (position.value.i === -1 ? null : { n: position.value.i + 1, total: position.value.list.length }))
 
-  /**
-   * The page flies off like a swiped card, then the neighbour comes up from behind.
-   * replace, so "back" returns to the list instead of stepping through every swipe.
-   */
-  const go = async (t: BrowseTarget | null) => {
-    if (!t || isFlying(document.querySelector('main'))) return
-    const dir = t.to === next.value?.to ? 'left' : 'right'
-    await flyOut(dir)
+  /** replace, so "back" returns to the list instead of stepping through every swipe */
+  const go = (t: BrowseTarget | null) => {
+    if (!t) return
     fromBrowse = true
-    pendingSlide = dir
+    pendingSlide = t.to === next.value?.to ? 'left' : 'right'
     navigateTo(t.to, { replace: true })
   }
 
-  useHorizontalSwipe(
-    dir => go(dir === 'left' ? next.value : prev.value),
-    {
-      can: dir => !!(dir === 'left' ? next.value : prev.value),
-      preview: (dir) => {
-        const t = dir === 'left' ? next.value : prev.value
-        return t ? { title: t.label, node: loaded.get(t.to) } : null
-      },
-    },
-  )
-
-  // the neighbours are loaded once the phone is idle (see preload)
-  let cancelIdle = () => {}
-  onMounted(() => {
-    if (!cardSwipe()) return
-    cancelIdle = whenIdle(() => {
-      for (const t of [next.value, prev.value]) if (t) preload(t.to)
-    })
+  useHorizontalSwipe((dir) => {
+    const t = dir === 'left' ? next.value : prev.value
+    if (t) go(t)
+    else edgeBump(dir)
   })
-  onBeforeUnmount(() => cancelIdle())
 
   return { prev, next, counter, go }
 }
