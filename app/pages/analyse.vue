@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import { useElementSize } from '@vueuse/core'
 import { formatDate } from '@/lib/format'
 import { serveBeer } from '@/lib/drunk'
 import { isKategorie, KATEGORIE_KEYS as keys, KATEGORIEN, type Kategorie } from '@/lib/analyse-kategorien'
@@ -21,6 +22,24 @@ const content = ref<HTMLElement | null>(null)
 /** transition of the last switch (card on touch screens, quick slide on desktop) */
 const swap = ref('card-swap')
 
+/**
+ * Touch screens: the categories left and right of the current one, rendered out of view (and only
+ * once the phone is idle, so switching stays quick). Swiping brings in a copy of the real thing
+ * right next to the current one, which then stays in place as the new category.
+ */
+const ghosts = ref<Kategorie[]>([])
+const { width: contentWidth } = useElementSize(content)
+let cancelIdle = () => {}
+const renderGhosts = () => {
+  if (!cardSwipe()) return
+  cancelIdle()
+  cancelIdle = whenIdle(() => {
+    ghosts.value = [prevKat.value?.key, nextKat.value?.key].filter((k): k is Kategorie => !!k)
+  })
+}
+watch(kategorie, renderGhosts)
+onBeforeUnmount(() => cancelIdle())
+
 // ?kategorie=… keeps the tab on reload and in shared links (read after hydration, the prerendered page shows the first)
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +47,7 @@ onMounted(() => {
   const q = route.query.kategorie
   if (isKategorie(q)) kategorie.value = q
   peek()
+  renderGhosts()
 })
 
 /**
@@ -52,6 +72,7 @@ function show(k: Kategorie) {
   if (k === kategorie.value) return false
   swap.value = swapTransition(keys.indexOf(k) > keys.indexOf(kategorie.value) ? 'left' : 'right')
   kategorie.value = k
+  // (after a swipe it is already at the top, see flyOut)
   window.scrollTo({ top: 0, behavior: 'smooth' })
   return true
 }
@@ -81,7 +102,7 @@ useHorizontalSwipe(
     can: d => !!neighbour(d),
     preview: (d) => {
       const k = KATEGORIEN.find(c => c.key === neighbour(d))
-      return k ? { title: k.label, section: true } : null
+      return k ? { title: k.label, section: true, node: document.querySelector(`[data-swipe-ghost="${k.key}"]`) } : null
     },
   },
 )
@@ -186,57 +207,27 @@ useHorizontalSwipe(
         ref="content"
         class="grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
-        <!-- the first card of each category right away, the ones further down only once they are
-             scrolled into view (on a phone that's most of the page); the map with its geo data only on Orte -->
-        <template v-if="kategorie === 'bewertungen'">
-          <AnalyseScoreTimelineCard class="lg:col-span-2" />
-          <LazyAnalysePreisLeistungCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalyseKonsensCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalyseGeschmackCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalyseNotenverteilungCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalysePcaCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalysePlanerBiasCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-        </template>
-        <template v-else-if="kategorie === 'termine'">
-          <AnalyseAnwesenheitCard class="lg:col-span-2" />
-          <LazyAnalyseSaisonCard hydrate-on-visible />
-          <LazyAnalyseRhythmusCard hydrate-on-visible />
-        </template>
-        <template v-else-if="kategorie === 'bier'">
-          <AnalyseBierpreisCard />
-          <AnalyseBierbrilleCard />
-          <LazyAnalyseBierBewertungCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-          <LazyAnalyseBierCard
-            hydrate-on-visible
-            class="lg:col-span-2"
-          />
-        </template>
-        <template v-else>
-          <LazyAnalyseKarteCard class="lg:col-span-2" />
-        </template>
+        <AnalyseKategorie :kategorie="kategorie" />
       </section>
     </Transition>
+
+    <!-- the neighbouring categories, out of view (see ghosts) -->
+    <div
+      v-if="ghosts.length"
+      class="pointer-events-none fixed top-0 left-[-400vw]"
+      :style="{ width: `${contentWidth}px` }"
+      aria-hidden="true"
+      inert
+    >
+      <section
+        v-for="k in ghosts"
+        :key="k"
+        :data-swipe-ghost="k"
+        class="grid grid-cols-1 gap-6 lg:grid-cols-2"
+      >
+        <AnalyseKategorie :kategorie="k" />
+      </section>
+    </div>
   </AppPage>
 </template>
 

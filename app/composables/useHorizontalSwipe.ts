@@ -63,16 +63,29 @@ export const isFlying = (el: Element | null | undefined) => !!el && flying.has(e
 
 // ---------- the neighbour following in from the side ----------
 
-/** what the neighbour that way looks like before it is there: its title */
+/** the neighbour that way, before it is there */
 export interface SwipePreview {
+  /** the real neighbour, rendered somewhere out of view (or loaded); a copy of it follows the card */
+  node?: Element | null
+  /** if `node` isn't ready yet: a stand-in with this title and empty cards */
   title: string
   /** the card is a section inside the page (Analyse), not the whole page: no page padding */
   section?: boolean
 }
 
+/** runs `cb` when the browser has nothing else to do (Safari has no requestIdleCallback); returns a cancel */
+export function whenIdle(cb: () => void, timeout = 1500): () => void {
+  if ('requestIdleCallback' in window) {
+    const id = requestIdleCallback(cb, { timeout })
+    return () => cancelIdleCallback(id)
+  }
+  const id = setTimeout(cb, 300)
+  return () => clearTimeout(id)
+}
+
 /** the current page's neighbours (set by its useHorizontalSwipe) */
 let previewOf: ((dir: 'left' | 'right') => SwipePreview | null) | null = null
-/** the panel next to the card: a stand-in for the neighbour with its title and empty cards */
+/** the panel next to the card: a copy of the neighbour (or a stand-in for it) */
 let peek: { el: HTMLElement, dir: 'left' | 'right' } | null = null
 
 /** the panel sits one screen width to the side of the card and moves with it */
@@ -91,13 +104,19 @@ function peekFor(card: HTMLElement, dir: 'left' | 'right'): HTMLElement | null {
   const p = previewOf?.(dir)
   if (!p) return null
   const r = card.getBoundingClientRect()
-  // below the menu bar (when it is showing), so the title can be seen
-  const bar = Math.max(0, document.querySelector('[data-app-bar]')?.getBoundingClientRect().bottom ?? 0)
   const el = document.createElement('div')
   el.className = 'pointer-events-none fixed bottom-0 z-30 overflow-hidden bg-background text-foreground'
-  Object.assign(el.style, { top: `${Math.max(bar, r.top)}px`, left: `${r.left}px`, width: `${r.width}px`, willChange: 'transform' })
+  // where the card would be when scrolled to the top: the neighbour shows from its start, and the
+  // page is scrolled up behind it (see flyOut), so the real one appears exactly there
+  Object.assign(el.style, { top: `${r.top + window.scrollY}px`, left: `${r.left}px`, width: `${r.width}px`, willChange: 'transform' })
   el.setAttribute('aria-hidden', 'true')
-  // laid out like the real page, so the title lands about where it will be
+  if (p.node) {
+    el.append(document.importNode(p.node, true))
+    document.body.append(el)
+    peek = { el, dir }
+    return el
+  }
+  // not ready yet: a stand-in laid out like the real page, so the title lands about where it will be
   const inner = document.createElement('div')
   inner.className = p.section ? 'flex flex-col gap-6' : 'mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-5 sm:px-6'
   const title = document.createElement('div')
@@ -116,7 +135,10 @@ function peekFor(card: HTMLElement, dir: 'left' | 'right'): HTMLElement | null {
   return el
 }
 
-/** once the real neighbour has replaced the card, the stand-in fades away */
+/**
+ * Once the real neighbour has replaced the card, the copy goes. It waits a moment first, so cards
+ * that load a little later (lazy ones) are there too; then it fades out very quickly (it looks the same).
+ */
 function handOver(card: HTMLElement, panel: HTMLElement) {
   const t0 = performance.now()
   const check = () => {
@@ -125,10 +147,13 @@ function handOver(card: HTMLElement, panel: HTMLElement) {
       requestAnimationFrame(check)
       return
     }
-    // replaced: fade into the real page; not replaced (navigation didn't happen): just go
+    // not replaced (navigation didn't happen): just go
     if (card.isConnected) return removePeek()
-    panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: 'ease-out', fill: 'forwards' })
-      .finished.then(() => peek?.el === panel && removePeek(), () => {})
+    setTimeout(() => {
+      if (peek?.el !== panel) return
+      panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 80, easing: 'ease-out', fill: 'forwards' })
+        .finished.then(() => peek?.el === panel && removePeek(), () => {})
+    }, 150)
   }
   requestAnimationFrame(check)
 }
@@ -168,7 +193,11 @@ export function flyOut(dir: 'left' | 'right', el: HTMLElement | null = document.
   if (panel) {
     panel.style.transform = ''
     panel.animate([{ transform: peekTransform(dir, dx) }, { transform: 'none' }], timing)
-    anim.finished.then(() => handOver(el, panel), () => {})
+    anim.finished.then(() => {
+      // the old card is out of view now: scroll up behind the neighbour, where the real one will appear
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      handOver(el, panel)
+    }, () => {})
   }
   const done = anim.finished.then(() => {}, () => {})
   flying.set(el, done)
@@ -259,7 +288,8 @@ export function useHorizontalSwipe(onSwipe: (dir: 'left' | 'right') => void, opt
     const dir = pending < 0 ? 'left' : 'right'
     const panel = pending && can(dir) ? peekFor(el, dir) : null
     if (panel) panel.style.transform = peekTransform(dir, pending)
-    else removePeek()
+    // nothing that way (or back in the middle): the copy waits just out of view instead of being rebuilt
+    else if (peek) peek.el.style.transform = peekTransform(peek.dir, 0)
   }
 
   useEventListener(window, 'touchstart', (e: TouchEvent) => {

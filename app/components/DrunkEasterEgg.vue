@@ -179,7 +179,7 @@ const rnd = (a: number, z: number) => a + Math.random() * (z - a)
 const sign = () => (Math.random() < 0.5 ? -1 : 1)
 
 /** between its waves the blur doesn't clear up any more than this (share of full blur) */
-const BLUR_FLOOR = 0.45
+const BLUR_FLOOR = 0.7
 
 /**
  * An element's blur swells and ebbs a random number of times (3 to 7) over the 12 s, each time a bit
@@ -255,7 +255,7 @@ function pickMovers(): Wave[] {
   })
   const cards = [...document.querySelectorAll(`main ${CARDS}`)].filter(onScreen)
   // a card's blur also blurs what's in it, so cards get only a little (their content adds its own)
-  return [...cards.map(el => randomWave(el, 0.5, [0.3, 1.2])), ...outermost.map(el => randomWave(el, 1, [0.6, 4]))].slice(0, MAX_MOVERS)
+  return [...cards.map(el => randomWave(el, 0.5, [2, 5])), ...outermost.map(el => randomWave(el, 1, [5, 14]))].slice(0, MAX_MOVERS)
 }
 
 /** keyframes from now to the end: `at(t, e)` with t = wave clock (s), e = ms since the fade-in began */

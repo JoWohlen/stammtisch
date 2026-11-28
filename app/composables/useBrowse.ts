@@ -38,6 +38,28 @@ export function takeBrowseSlide() {
   return dir
 }
 
+/**
+ * Neighbour pages, loaded ahead on touch screens so swiping can bring in the real next page:
+ * the site is prerendered, so its HTML is the page as it will look. path → its <main> (null while loading)
+ */
+const loaded = new Map<string, Element | null>()
+const MAX_LOADED = 8
+
+function preload(path: string) {
+  if (loaded.has(path)) return
+  loaded.set(path, null)
+  fetch(path)
+    .then(r => (r.ok ? r.text() : ''))
+    .then((html) => {
+      const main = html ? new DOMParser().parseFromString(html, 'text/html').querySelector('main') : null
+      if (!main) return loaded.delete(path)
+      loaded.set(path, main)
+      // only the last few
+      while (loaded.size > MAX_LOADED) loaded.delete(loaded.keys().next().value!)
+    })
+    .catch(() => loaded.delete(path))
+}
+
 const useOrder = () => useState<Record<BrowseKind, string[]>>('browse-order', () => ({ brauhaus: [], teilnehmer: [] }))
 
 /** Call from a list when one of its entries is clicked: `paths` in the order shown. */
@@ -123,10 +145,20 @@ export function useBrowse(kind: BrowseKind, current: ComputedRef<{ slug: string,
       can: dir => !!(dir === 'left' ? next.value : prev.value),
       preview: (dir) => {
         const t = dir === 'left' ? next.value : prev.value
-        return t ? { title: t.label } : null
+        return t ? { title: t.label, node: loaded.get(t.to) } : null
       },
     },
   )
+
+  // the neighbours are loaded once the phone is idle (see preload)
+  let cancelIdle = () => {}
+  onMounted(() => {
+    if (!cardSwipe()) return
+    cancelIdle = whenIdle(() => {
+      for (const t of [next.value, prev.value]) if (t) preload(t.to)
+    })
+  })
+  onBeforeUnmount(() => cancelIdle())
 
   return { prev, next, counter, go }
 }
