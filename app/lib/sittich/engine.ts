@@ -435,11 +435,14 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
   }
 
   /**
-   * comic "HAU AB!" shouted at the clicked bird: white outlined letters on a black starburst.
+   * comic "HAU AB!" shouted at the clicked bird ("HAUT AB!" when it's a couple, as both fly off):
+   * white outlined letters on a black starburst.
    * Shown below the bar and off to the side towards the middle of the screen, so a finger on the
    * bird doesn't cover it. Pops up and fades out while the bird flies off.
    */
   function shout(b: Bird) {
+    const pair = !!b.partner && b.partner.el.isConnected && !b.partner.dead && !b.partner.leaving
+    const word = pair ? 'HAUT AB' : 'HAU AB'
     const W = 140, H = 100
     const cx = W / 2, cy = H / 2
     /** gap between the bird and the burst, about a fingertip */
@@ -462,11 +465,11 @@ export function createSittichScene(perch: HTMLElement, opts: SittichOptions): Si
     }).join(' ')
     const el = document.createElement('div')
     el.style.cssText = `position:absolute;left:${left}px;top:${LINE_Y + 6}px;width:${W}px;height:${H}px;pointer-events:none;z-index:2;transform-origin:50% 50%`
-    el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" overflow="visible" role="img" aria-label="Hau ab!">
+    el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" overflow="visible" role="img" aria-label="${pair ? 'Haut ab!' : 'Hau ab!'}">
       <polygon points="${burst}" fill="#111" stroke="#fff" stroke-width="4" stroke-linejoin="round" transform="rotate(-6 ${cx} ${cy})"/>
       <text x="${cx}" y="${cy + 10}" text-anchor="middle" transform="rotate(-12 ${cx} ${cy})"
-        font-family="Impact,'Arial Black',ui-sans-serif,sans-serif" font-weight="900" font-size="29" letter-spacing="0.5"
-        fill="#fff" stroke="#111" stroke-width="5" stroke-linejoin="round" paint-order="stroke">HAU AB<tspan dx="2" font-size="33">!</tspan></text>
+        font-family="Impact,'Arial Black',ui-sans-serif,sans-serif" font-weight="900" font-size="${pair ? 26 : 29}" letter-spacing="0.5"
+        fill="#fff" stroke="#111" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${word}<tspan dx="2" font-size="${pair ? 30 : 33}">!</tspan></text>
     </svg>`
     perch.appendChild(el)
     const stop = () => {
